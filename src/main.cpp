@@ -6,7 +6,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
-#include <Preferences.h>
+#include "storage.h"
 #include <HTTPClient.h>
 
 const char* apSsid = "ESP_Config";
@@ -15,7 +15,9 @@ IPAddress apIP(192,168,4,1);
 
 DNSServer dnsServer;
 WebServer webServer(80);
-Preferences prefs;
+
+// Replace global Preferences with Storage instance
+Storage storage;
 
 bool portalRunning = false;
 
@@ -40,10 +42,7 @@ void handleSave() {
   String ssid = webServer.arg("ssid");
   String pass = webServer.arg("pass");
   if (ssid.length() > 0) {
-    prefs.begin("wifi", false);
-    prefs.putString("ssid", ssid);
-    prefs.putString("pass", pass);
-    prefs.end();
+    storage.setWifiCreds(ssid, pass);
     webServer.send(200, "text/html", "<h3>Saved. Rebooting...</h3>");
     delay(1000);
     ESP.restart();
@@ -65,11 +64,8 @@ void startPortal() {
 }
 
 void tryAutoConnect() {
-  // Open non-readonly so the namespace will be created if it doesn't exist
-  prefs.begin("wifi", false);
-  String ssid = prefs.getString("ssid", "");
-  String pass = prefs.getString("pass", "");
-  prefs.end();
+  String ssid, pass;
+  if (!storage.getWifiCreds(ssid, pass)) return;
   if (ssid.length() == 0) return;
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), pass.c_str());
@@ -85,18 +81,12 @@ void tryAutoConnect() {
 }
 
 void saveAuthToken(const String &token) {
-  prefs.begin("auth", false);
-  prefs.putString("token", token);
-  prefs.end();
+  storage.setToken(token);
   Serial.print("Saved auth token: "); Serial.println(token);
 }
 
 String getSavedAuthToken() {
-  // Open non-readonly so the namespace will be created if it doesn't exist
-  prefs.begin("auth", false);
-  String t = prefs.getString("token", "");
-  prefs.end();
-  return t;
+  return storage.getToken();
 }
 
 bool authenticateDevice() {
