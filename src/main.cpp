@@ -4,64 +4,20 @@
  *  the most obvious difference being the different file you need to include:
  */
 #include <WiFi.h>
-#include <WebServer.h>
-#include <DNSServer.h>
+#include "wifi_portal.h"
 #include "storage.h"
 #include <HTTPClient.h>
 
 const char* apSsid = "ESP_Config";
 const char* apPass = ""; // optional
-IPAddress apIP(192,168,4,1);
-
-DNSServer dnsServer;
-WebServer webServer(80);
 
 // Replace global Preferences with Storage instance
 Storage storage;
-
-bool portalRunning = false;
+WifiPortal portal(storage, apSsid, apPass);
 
 const char* baseUrl = "https://agronos.kalogeitonas.xyz"; // e.g. "http://example.com" (no trailing slash)
 const char* deviceUuid = "Test-Device-1";
 const char* deviceSecret = "Test-Device-1";
-
-String indexPage = R"rawliteral(
-<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-<body><h3>Configure WiFi</h3>
-<form action="/save" method="POST">
-SSID:<br><input name="ssid"><br>Password:<br><input name="pass" type="password"><br><br>
-<input type="submit" value="Save">
-</form></body></html>
-)rawliteral";
-
-void handleRoot() {
-  webServer.send(200, "text/html", indexPage);
-}
-
-void handleSave() {
-  String ssid = webServer.arg("ssid");
-  String pass = webServer.arg("pass");
-  if (ssid.length() > 0) {
-    storage.setWifiCreds(ssid, pass);
-    webServer.send(200, "text/html", "<h3>Saved. Rebooting...</h3>");
-    delay(1000);
-    ESP.restart();
-  } else {
-    webServer.send(400, "text/plain", "SSID required");
-  }
-}
-
-void startPortal() {
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.softAPConfig(apIP, apIP, IPAddress(255,255,255,0));
-  WiFi.softAP(apSsid, apPass);
-  dnsServer.start(53, "*", apIP);
-  webServer.on("/", HTTP_GET, handleRoot);
-  webServer.on("/save", HTTP_POST, handleSave);
-  webServer.begin();
-  portalRunning = true;
-  Serial.println("AP started, captive portal running");
-}
 
 void tryAutoConnect() {
   String ssid, pass;
@@ -158,9 +114,14 @@ unsigned long lastAuthAttempt = 0;
 void setup()
 {
     Serial.begin(115200);
+
+    // TEST: clear saved WiFi credentials on every boot so portal always starts.
+    // Comment out the next line when you no longer want this behavior.
+    //storage.setWifiCreds("", "");
+
     tryAutoConnect();
     if (WiFi.status() != WL_CONNECTED) {
-        startPortal();
+        portal.start();
     } else {
         Serial.print("IP: "); Serial.println(WiFi.localIP());
         // Attempt authentication once after successful connection
@@ -175,20 +136,7 @@ void setup()
 
 void loop()
 {
-    // Run captive-portal handlers only while portal is active
-    if (portalRunning) {
-        dnsServer.processNextRequest();
-        webServer.handleClient();
-
-        // If the device becomes connected while portal is running, stop the portal
-        if (WiFi.status() == WL_CONNECTED) {
-            Serial.println("WiFi connected while portal running — stopping portal");
-            WiFi.softAPdisconnect(true);
-            dnsServer.stop();
-            webServer.stop();
-            portalRunning = false;
-        }
-    }
+    portal.handle();
 
     // If connected and no saved token, attempt authentication periodically
     if (WiFi.status() == WL_CONNECTED) {
