@@ -17,3 +17,12 @@ constexpr unsigned long DHT_READ_INTERVAL_MS = 2000;
 
 // Auth manager
 constexpr unsigned long AUTH_RETRY_INTERVAL_MS = 30000;
+
+// Sensor UUIDs
+// Factory-assigned, immutable sensor UUIDs. Replace with your device's sensor IDs.
+constexpr const char* SENSOR_UUIDS[] = {
+    "sensor-uuid-1",
+    "sensor-uuid-2",
+    // ... add more sensor UUIDs as needed
+};
+constexpr size_t SENSOR_UUID_COUNT = sizeof(SENSOR_UUIDS) / sizeof(SENSOR_UUIDS[0]);
