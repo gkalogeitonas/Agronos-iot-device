@@ -1,0 +1,19 @@
+#pragma once
+
+// Copy this file to include/config.h and fill in values before building.
+
+// Network / server
+constexpr const char* BASE_URL       = "https://example.com";
+constexpr const char* DEFAULT_UUID   = "YourDeviceUUID";
+constexpr const char* DEFAULT_SECRET = "YourDeviceSecret";
+
+// Captive portal AP
+constexpr const char* AP_SSID = "ESP_Config";
+constexpr const char* AP_PASS = ""; // optional
+
+// DHT sensor
+constexpr int DHT11_PIN = 21;
+constexpr unsigned long DHT_READ_INTERVAL_MS = 2000;
+
+// Auth manager
+constexpr unsigned long AUTH_RETRY_INTERVAL_MS = 30000;

@@ -9,29 +9,30 @@
 #include "auth.h"
 #include <HTTPClient.h>
 #include <DHT.h>                      // add DHT include
+#include "config.h"
 
-const char* apSsid = "ESP_Config";
-const char* apPass = ""; // optional
+const char* apSsid = AP_SSID;
+const char* apPass = AP_PASS; // optional
 
 // Replace global Preferences with Storage instance
 Storage storage;
 WifiPortal portal(storage, apSsid, apPass);
 
-const char* baseUrl = "https://agronos.kalogeitonas.xyz"; // e.g. "http://example.com" (no trailing slash)
-const char* deviceUuid = "Test-Device-1";
-const char* deviceSecret = "Test-Device-1";
+const char* baseUrl = BASE_URL; // e.g. "http://example.com" (no trailing slash)
+const char* deviceUuid = DEFAULT_UUID;
+const char* deviceSecret = DEFAULT_SECRET;
 
+// DHT pin and read interval are defined in include/config.h (DHT11_PIN, DHT_READ_INTERVAL_MS)
 
 // Auth manager
-AuthManager auth(storage, baseUrl, deviceUuid, deviceSecret, 30000);
+AuthManager auth(storage, baseUrl, deviceUuid, deviceSecret, AUTH_RETRY_INTERVAL_MS);
 
 
-#define DHT11_PIN  21 // ESP32 pin GPIO21 connected to DHT11 sensor
+
 
 DHT dht11(DHT11_PIN, DHT11);
 
 // non-blocking read interval
-static const unsigned long DHT_READ_INTERVAL_MS = 2000;
 static unsigned long lastDhtRead = 0;
 
 void tryAutoConnect() {
@@ -86,28 +87,28 @@ void loop()
     // Let auth manager handle periodic auth attempts when needed
     auth.loop();
 
-  float humi  = dht11.readHumidity();
-  // read temperature in Celsius
-  float tempC = dht11.readTemperature();
-  // read temperature in Fahrenheit
-  float tempF = dht11.readTemperature(true);
+    float humi  = dht11.readHumidity();
+    // read temperature in Celsius
+    float tempC = dht11.readTemperature();
+    // read temperature in Fahrenheit
+    float tempF = dht11.readTemperature(true);
 
-  // check whether the reading is successful or not
-  if ( isnan(tempC) || isnan(tempF) || isnan(humi)) {
-    Serial.println("Failed to read from DHT11 sensor!");
-  } else {
-    Serial.print("Humidity: ");
-    Serial.print(humi);
-    Serial.print("%");
+    // check whether the reading is successful or not
+    if ( isnan(tempC) || isnan(tempF) || isnan(humi)) {
+      Serial.println("Failed to read from DHT11 sensor!");
+    } else {
+      Serial.print("Humidity: ");
+      Serial.print(humi);
+      Serial.print("%");
 
-    Serial.print("  |  ");
+      Serial.print("  |  ");
 
-    Serial.print("Temperature: ");
-    Serial.print(tempC);
-    Serial.print("°C  ~  ");
-    Serial.print(tempF);
-    Serial.println("°F");
-  }
+      Serial.print("Temperature: ");
+      Serial.print(tempC);
+      Serial.print("°C  ~  ");
+      Serial.print(tempF);
+      Serial.println("°F");
+    }
 
     // Wait a bit before scanning again
     delay(5000);
