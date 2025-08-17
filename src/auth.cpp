@@ -1,6 +1,7 @@
 #include "auth.h"
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <ArduinoJson.h>
 
 AuthManager::AuthManager(Storage &storage, const char* baseUrl, const char* uuid, const char* secret, unsigned long retryIntervalMs)
 : storage(storage), baseUrl(baseUrl), uuid(uuid), secret(secret), retryIntervalMs(retryIntervalMs), lastAttempt(0) {}
@@ -34,30 +35,43 @@ bool AuthManager::performAuthRequest() {
     String resp = http.getString();
     Serial.print("Response: "); Serial.println(resp);
 
-    // Try to extract token from response (simple parsing without ArduinoJson)
-    int tokenKey = resp.indexOf("\"token\"");
-    if (tokenKey >= 0) {
-      int colon = resp.indexOf(':', tokenKey);
-      if (colon >= 0) {
-        int start = resp.indexOf('"', colon);
-        int end = resp.indexOf('"', start + 1);
-        if (start >= 0 && end > start) {
-          String token = resp.substring(start + 1, end);
-          storage.setToken(token);
+    // Use ArduinoJson to parse response safely
+    // Allocate a document with a reasonable size for expected responses
+    const size_t capacity = 1024;
+    DynamicJsonDocument doc(capacity);
+    DeserializationError err = deserializeJson(doc, resp);
+    if (err) {
+      Serial.print("Failed to parse JSON response: "); Serial.println(err.c_str());
+      http.end();
+      return false;
+    }
+
+    // Successful HTTP codes (2xx) — try to extract token
+    if (httpCode >= 200 && httpCode < 300) {
+      if (doc.containsKey("token")) {
+        const char* token = doc["token"];
+        if (token != nullptr) {
+          storage.setToken(String(token));
           http.end();
           return true;
         }
       }
+      // If no token field, try to print a message if present
+      if (doc.containsKey("message")) {
+        const char* message = doc["message"];
+        if (message) {
+          Serial.print("Server message: "); Serial.println(message);
+        }
+      }
+
+      http.end();
+      return false;
     }
 
-    // Check for message field (e.g., invalid credentials)
-    int msgKey = resp.indexOf("\"message\"");
-    if (msgKey >= 0) {
-      int colon = resp.indexOf(':', msgKey);
-      int start = resp.indexOf('"', colon);
-      int end = resp.indexOf('"', start + 1);
-      if (start >= 0 && end > start) {
-        String message = resp.substring(start + 1, end);
+    // Non-2xx responses — print message if available
+    if (doc.containsKey("message")) {
+      const char* message = doc["message"];
+      if (message) {
         Serial.print("Server message: "); Serial.println(message);
       }
     }
