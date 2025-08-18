@@ -10,6 +10,7 @@
 #include <HTTPClient.h>
 #include <DHT.h>                      // add DHT include
 #include "config.h"
+#include "data_sender.h"
 
 const char* apSsid = AP_SSID;
 const char* apPass = AP_PASS; // optional
@@ -27,6 +28,8 @@ const char* deviceSecret = DEFAULT_SECRET;
 // Auth manager
 AuthManager auth(storage, baseUrl, deviceUuid, deviceSecret, AUTH_RETRY_INTERVAL_MS);
 
+// Create DataSender instance to post sensor data
+DataSender sender(storage, baseUrl);
 
 
 
@@ -108,6 +111,14 @@ void loop()
       Serial.print("°C  ~  ");
       Serial.print(tempF);
       Serial.println("°F");
+
+      // Build explicit readings array (uuid + value) and send
+      SensorReading readings[] = {
+          { SENSOR_UUIDS[0], tempC },
+          { SENSOR_UUIDS[1], humi }
+      };
+      bool ok = sender.sendReadings(readings, sizeof(readings)/sizeof(readings[0]));
+      Serial.print("Data send result: "); Serial.println(ok ? "OK" : "FAILED");
     }
 
     // Wait a bit before scanning again
