@@ -48,10 +48,14 @@ bool DataSender::sendReadings(const SensorReading* readings, size_t count) {
     DynamicJsonDocument doc(capacity);
 
     JsonArray sensors = doc.createNestedArray("sensors");
+    // Round values to a fixed number of decimal places before serializing
+    constexpr int VALUE_PRECISION = 2; // number of decimal places (e.g., 2 -> 22.50)
+    const float factor = powf(10.0f, VALUE_PRECISION);
     for (size_t i = 0; i < count; ++i) {
         JsonObject obj = sensors.createNestedObject();
         obj["uuid"] = readings[i].uuid;
-        obj["value"] = readings[i].value;
+        float rounded = roundf(readings[i].value * factor) / factor;
+        obj["value"] = rounded;
     }
 
     String out;

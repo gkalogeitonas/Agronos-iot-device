@@ -11,6 +11,7 @@
 #include <DHT.h>                      // add DHT include
 #include "config.h"
 #include "data_sender.h"
+#include <math.h>
 
 const char* apSsid = AP_SSID;
 const char* apPass = AP_PASS; // optional
@@ -113,14 +114,16 @@ void loop()
       Serial.println("°F");
 
       // Build explicit readings array (uuid + value) and send
+      float tempC_rounded = roundf(tempC * 100.0f) / 100.0f; // 2 decimal places
+      float humi_rounded  = roundf(humi  * 100.0f) / 100.0f; // 2 decimal places
       SensorReading readings[] = {
-          { SENSOR_UUIDS[0], tempC },
-          { SENSOR_UUIDS[1], humi }
+          { SENSOR_UUIDS[0], tempC_rounded },
+          { SENSOR_UUIDS[1], humi_rounded }
       };
       bool ok = sender.sendReadings(readings, sizeof(readings)/sizeof(readings[0]));
       Serial.print("Data send result: "); Serial.println(ok ? "OK" : "FAILED");
     }
 
     // Wait a bit before scanning again
-    delay(5000);
+    delay(100000);
 }
