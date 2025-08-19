@@ -4,8 +4,12 @@
 #include <vector>
 #include <memory>
 
-// Forward declare SensorConfig (defined in config.h)
-struct SensorConfig;
+// Sensor descriptor used by the sensor factory
+struct SensorConfig {
+    const char* type; // e.g. "DHT11_TEMP", "DHT11_HUM", "DS18B20", "SIMULATED"
+    int pin;          // pin or -1 if not applicable
+    const char* uuid; // sensor uuid used by the server
+};
 
 class SensorBase {
 public:
