@@ -25,6 +25,6 @@ bool registerSensorFactory(const char* name, CreatorFunc creator);
 // nullptr if no creator is found.
 SensorBase* createSensorByType(const char* name, const SensorConfig& cfg);
 
-// Convenience helpers (existing factory helpers)
+// Factory helpers (implemented in src/sensor_factory.cpp)
 SensorBase** createSensors(size_t &outCount);
 void destroySensors(SensorBase** arr, size_t count);
