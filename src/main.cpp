@@ -24,7 +24,7 @@ const char* baseUrl = BASE_URL; // e.g. "http://example.com" (no trailing slash)
 const char* deviceUuid = DEFAULT_UUID;
 const char* deviceSecret = DEFAULT_SECRET;
 
-// DHT pin and read interval are defined in include/config.h (DHT11_PIN, DHT_READ_INTERVAL_MS)
+// DHT pin and read interval are defined in include/config.h (DHT11_PIN, SENSORS_READ_INTERVAL_MS)
 
 // Auth manager
 AuthManager auth(storage, baseUrl, deviceUuid, deviceSecret, AUTH_RETRY_INTERVAL_MS);
@@ -125,5 +125,5 @@ void loop()
     }
 
     // Wait a bit before scanning again
-    delay(100000);
+    delay(SENSORS_READ_INTERVAL_MS);
 }

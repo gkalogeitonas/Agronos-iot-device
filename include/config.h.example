@@ -13,7 +13,7 @@ constexpr const char* AP_PASS = ""; // optional
 
 // DHT sensor
 constexpr int DHT11_PIN = 21;
-constexpr unsigned long DHT_READ_INTERVAL_MS = 2000;
+constexpr unsigned long SENSORS_READ_INTERVAL_MS = 2000;
 
 // Auth manager
 constexpr unsigned long AUTH_RETRY_INTERVAL_MS = 30000;
