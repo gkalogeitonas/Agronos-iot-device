@@ -76,9 +76,18 @@ bool DataSender::sendValuesWithUuids(const char* uuids[], const float* values, s
 
 bool DataSender::sendValues(const float* values, size_t count) {
     if (!values || count == 0) return false;
-    if (count > SENSOR_UUID_COUNT) {
-        Serial.println("sendValues: count exceeds SENSOR_UUID_COUNT");
+    if (count > SENSOR_CONFIG_COUNT) {
+        Serial.println("sendValues: count exceeds SENSOR_CONFIG_COUNT");
         return false;
     }
-    return sendValuesWithUuids((const char**)SENSOR_UUIDS, values, count);
+
+    // Build UUID array from SENSOR_CONFIGS (backwards-compatible behavior)
+    const char** uuids = (const char**)malloc(sizeof(const char*) * count);
+    if (!uuids) return false;
+    for (size_t i = 0; i < count; ++i) {
+        uuids[i] = SENSOR_CONFIGS[i].uuid;
+    }
+    bool result = sendValuesWithUuids(uuids, values, count);
+    free(uuids);
+    return result;
 }
