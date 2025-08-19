@@ -1,6 +1,8 @@
 #pragma once
 
 #include <stddef.h>
+#include <vector>
+#include <memory>
 
 // Forward declare SensorConfig (defined in config.h)
 struct SensorConfig;
@@ -26,5 +28,4 @@ bool registerSensorFactory(const char* name, CreatorFunc creator);
 SensorBase* createSensorByType(const char* name, const SensorConfig& cfg);
 
 // Factory helpers (implemented in src/sensor_factory.cpp)
-SensorBase** createSensors(size_t &outCount);
-void destroySensors(SensorBase** arr, size_t count);
+std::vector<std::unique_ptr<SensorBase>> createSensors();

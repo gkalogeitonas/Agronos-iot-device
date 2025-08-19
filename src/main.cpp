@@ -35,8 +35,7 @@ DataSender sender(storage, baseUrl);
 static unsigned long lastDhtRead = 0;
 
 // Sensor instances created from config
-static SensorBase** sensors = nullptr;
-static size_t sensorsCount = 0;
+static std::vector<std::unique_ptr<SensorBase>> sensors;
 
 void tryAutoConnect() {
   String ssid, pass;
@@ -60,7 +59,7 @@ void setup()
     Serial.begin(115200);
 
     // create sensors from config
-    sensors = createSensors(sensorsCount);
+    sensors = createSensors();
 
     // TEST: clear saved WiFi credentials on every boot so portal always starts.
     // Comment out the next line when you no longer want this behavior.
@@ -91,11 +90,11 @@ void loop()
     auth.loop();
 
     // Read sensors from the abstraction layer
-    size_t maxReadings = sensorsCount;
+    size_t maxReadings = sensors.size();
     SensorReading *readings = (SensorReading*)malloc(sizeof(SensorReading) * maxReadings);
     size_t available = 0;
 
-    for (size_t i = 0; i < sensorsCount; ++i) {
+    for (size_t i = 0; i < sensors.size(); ++i) {
         float value;
         if (sensors[i]->read(value)) {
             float rounded = roundf(value * 100.0f) / 100.0f; // 2 decimal places
