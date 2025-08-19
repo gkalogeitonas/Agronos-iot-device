@@ -2,6 +2,8 @@
 
 // Copy this file to include/config.h and fill in values before building.
 
+#include "sensor.h" // SensorConfig is defined in the sensor API header
+
 // Network / server
 constexpr const char* BASE_URL       = "https://example.com";
 constexpr const char* DEFAULT_UUID   = "YourDeviceUUID";
@@ -13,16 +15,18 @@ constexpr const char* AP_PASS = ""; // optional
 
 // DHT sensor
 constexpr int DHT11_PIN = 21;
-constexpr unsigned long SENSORS_READ_INTERVAL_MS = 2000;
+
+// non-blocking read interval (milliseconds)
+// Default: 5 minutes
+constexpr unsigned long SENSORS_READ_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Auth manager
 constexpr unsigned long AUTH_RETRY_INTERVAL_MS = 30000;
 
-// Sensor UUIDs
-// Factory-assigned, immutable sensor UUIDs. Replace with your device's sensor IDs.
-constexpr const char* SENSOR_UUIDS[] = {
-    "sensor-uuid-1",
-    "sensor-uuid-2",
-    // ... add more sensor UUIDs as needed
+// Define sensors here only. To add/remove sensors modify this array.
+// Example: use the concrete sensor class names registered with the factory.
+constexpr SensorConfig SENSOR_CONFIGS[] = {
+    { "DHT11TemperatureReader", 21, "sensor-uuid-1" },
+    { "DHT11HumidityReader",    21, "sensor-uuid-2" }
 };
-constexpr size_t SENSOR_UUID_COUNT = sizeof(SENSOR_UUIDS) / sizeof(SENSOR_UUIDS[0]);
+constexpr size_t SENSOR_CONFIG_COUNT = sizeof(SENSOR_CONFIGS) / sizeof(SENSOR_CONFIGS[0]);
