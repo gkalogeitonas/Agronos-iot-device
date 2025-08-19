@@ -61,11 +61,5 @@ Troubleshooting
 - If a sensor returns `NaN` readings, check wiring and pin numbers in `config.h` and ensure only one physical DHT object per pin (the code uses shared instances).
 - If HTTP POST fails, check `BASE_URL` in `include/config.h` and verify network/auth token in storage.
 
-Contributing
-- Keep changes small and focused. For new sensor drivers, add a dedicated `.cpp` file and register the creator as described above.
-
-License
-- (Add your license here)
-
 
 
