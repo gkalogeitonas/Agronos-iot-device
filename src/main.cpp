@@ -52,6 +52,9 @@ void tryAutoConnect() {
     delay(200);
   }
   Serial.println("Failed to connect to saved WiFi");
+  storage.setWifiCreds("", ""); // clear invalid creds
+  portal.start();
+  Serial.println("Starting portal due to failed WiFi connection");
 }
 
 void setup()
@@ -89,6 +92,15 @@ void loop()
     // Let auth manager handle periodic auth attempts when needed
     auth.loop();
 
+    // Non-blocking sensor read: only run the expensive read/send cycle when the
+    // interval has elapsed. This keeps the portal responsive while idle.
+    unsigned long now = millis();
+    if (now - lastDhtRead < SENSORS_READ_INTERVAL_MS) {
+        // Not time yet — return quickly so portal.handle() is called frequently
+        return;
+    }
+    lastDhtRead = now;
+
     // Read sensors from the abstraction layer
     size_t maxReadings = sensors.size();
     SensorReading *readings = (SensorReading*)malloc(sizeof(SensorReading) * maxReadings);
@@ -115,7 +127,4 @@ void loop()
     }
 
     free(readings);
-
-    // Wait a bit before scanning again
-    delay(SENSORS_READ_INTERVAL_MS);
 }
