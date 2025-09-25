@@ -13,6 +13,7 @@
 #include <math.h>
 
 #include "sensor.h"
+#include <esp_sleep.h>
 
 const char* apSsid = AP_SSID;
 const char* apPass = AP_PASS; // optional
@@ -31,8 +32,11 @@ AuthManager auth(storage, baseUrl, deviceUuid, deviceSecret, AUTH_RETRY_INTERVAL
 // Create DataSender instance to post sensor data
 DataSender sender(storage, baseUrl);
 
-// non-blocking read interval
-static unsigned long lastDhtRead = 0;
+// (timing handled by deep sleep across boots)
+
+// Backoff for failed send attempts while connected (ms)
+constexpr unsigned long SEND_RETRY_BACKOFF_MS = 30UL * 1000UL; // 30s
+static unsigned long lastSendAttempt = 0;
 
 // Sensor instances created from config
 static std::vector<std::unique_ptr<SensorBase>> sensors;
@@ -129,15 +133,33 @@ void loop()
     // Let auth manager handle periodic auth attempts when needed
     auth.loop();
 
-    // Non-blocking sensor read: only run the expensive read/send cycle when the
-    // interval has elapsed. This keeps the portal responsive while idle.
+    // Attempt send immediately when connected; device will deep-sleep on success.
+    // Rate-limit attempts when sends fail to avoid hammering the server.
     unsigned long now = millis();
-    if (now - lastDhtRead < SENSORS_READ_INTERVAL_MS) {
-        // Not time yet — return quickly so portal.handle() is called frequently
+    if (now - lastSendAttempt < SEND_RETRY_BACKOFF_MS) {
+        // Wait before trying again
         return;
     }
-    lastDhtRead = now;
+
+    // Record this attempt time; on failure this enforces the backoff interval.
+    lastSendAttempt = now;
 
     // Call extracted function
-    sendMeasurements();
+    bool sent = sendMeasurements();
+    if (sent) {
+        // reset lastSendAttempt to avoid delaying next cycle after wake
+        lastSendAttempt = 0;
+        // Enter deep sleep for the configured interval (milliseconds -> microseconds)
+        uint64_t sleep_us = (uint64_t)SENSORS_READ_INTERVAL_MS * 1000ULL;
+        Serial.print("Measurements sent, entering deep sleep for ms: ");
+        Serial.println(SENSORS_READ_INTERVAL_MS);
+
+        // Turn off WiFi cleanly to speed shutdown
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+        delay(50);
+
+        esp_sleep_enable_timer_wakeup(sleep_us);
+        esp_deep_sleep_start();
+    }
 }
