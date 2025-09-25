@@ -85,9 +85,46 @@ void setup()
     }
 }
 
+// New helper: read sensors and send measurements
+static bool sendMeasurements() {
+    // Read sensors into a vector (no manual malloc/free)
+    std::vector<SensorReading> readings;
+    readings.reserve(sensors.size());
+
+    for (size_t i = 0; i < sensors.size(); ++i) {
+        float value;
+        if (sensors[i]->read(value)) {
+            float rounded = roundf(value * 100.0f) / 100.0f; // 2 decimal places
+            readings.push_back({ sensors[i]->uuid(), rounded });
+            Serial.print("Sensor ");
+            Serial.print(sensors[i]->uuid());
+            Serial.print(" = ");
+            Serial.println(rounded);
+        } else {
+            Serial.print("Failed to read from sensor ");
+            Serial.println(sensors[i]->uuid());
+        }
+    }
+
+    if (readings.empty()) {
+        return false;
+    }
+
+    bool ok = sender.sendReadings(readings.data(), readings.size());
+    Serial.print("Data send result: "); Serial.println(ok ? "OK" : "FAILED");
+    return ok;
+}
+
 void loop()
 {
     portal.handle();
+
+    // Only run auth and send measurements when connected to Wi‑Fi
+    if (WiFi.status() != WL_CONNECTED) {
+        // Not connected: skip auth.loop() and sendMeasurements()
+        return;
+    }
+
 
     // Let auth manager handle periodic auth attempts when needed
     auth.loop();
@@ -101,30 +138,6 @@ void loop()
     }
     lastDhtRead = now;
 
-    // Read sensors from the abstraction layer
-    size_t maxReadings = sensors.size();
-    SensorReading *readings = (SensorReading*)malloc(sizeof(SensorReading) * maxReadings);
-    size_t available = 0;
-
-    for (size_t i = 0; i < sensors.size(); ++i) {
-        float value;
-        if (sensors[i]->read(value)) {
-            float rounded = roundf(value * 100.0f) / 100.0f; // 2 decimal places
-            readings[available++] = { sensors[i]->uuid(), rounded };
-            Serial.print("Sensor ");
-            Serial.print(sensors[i]->uuid());
-            Serial.print(" = ");
-            Serial.println(rounded);
-        } else {
-            Serial.print("Failed to read from sensor ");
-            Serial.println(sensors[i]->uuid());
-        }
-    }
-
-    if (available > 0) {
-        bool ok = sender.sendReadings(readings, available);
-        Serial.print("Data send result: "); Serial.println(ok ? "OK" : "FAILED");
-    }
-
-    free(readings);
+    // Call extracted function
+    sendMeasurements();
 }
