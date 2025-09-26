@@ -56,7 +56,7 @@ void tryAutoConnect() {
     delay(200);
   }
   Serial.println("Failed to connect to saved WiFi");
-  storage.setWifiCreds("", ""); // clear invalid creds
+  //storage.setWifiCreds("", ""); // clear invalid creds
   portal.start();
   Serial.println("Starting portal due to failed WiFi connection");
 }
@@ -126,6 +126,7 @@ void loop()
     // Only run auth and send measurements when connected to Wi‑Fi
     if (WiFi.status() != WL_CONNECTED) {
         // Not connected: skip auth.loop() and sendMeasurements()
+        Serial.println("WiFi not connected, skipping auth and send");
         return;
     }
 
