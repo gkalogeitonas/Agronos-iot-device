@@ -87,6 +87,17 @@ void setup()
             Serial.println("No auth token saved");
         }
     }
+    //print current mqtt credentials
+    // MqttCredentials creds;
+    // if (storage.getMqttCredentials(creds)) {
+    //     Serial.println("Saved MQTT credentials:");
+    //     Serial.print("  Server: "); Serial.println(creds.server);
+    //     Serial.print("  Username: "); Serial.println(creds.username);
+    //     Serial.print("  Password: "); Serial.println(creds.password);
+    // } else {
+    //     Serial.println("No saved MQTT credentials");
+    // }
+    // storage.clearMqttCredentials(); // TESTING: always clear MQTT creds on boot
 }
 
 // New helper: read sensors and send measurements
@@ -126,13 +137,18 @@ void loop()
     // Only run auth and send measurements when connected to Wi‑Fi
     if (WiFi.status() != WL_CONNECTED) {
         // Not connected: skip auth.loop() and sendMeasurements()
-        Serial.println("WiFi not connected, skipping auth and send");
+        //Serial.println("WiFi not connected, skipping auth and send");
         return;
     }
 
 
     // Let auth manager handle periodic auth attempts when needed
     auth.loop();
+    if (MQTT_ENABLED && !auth.hasMqttCredentials()) {
+        if (auth.getSavedToken().length() > 0) {
+            auth.fetchMqttCredentials();
+        }
+    }
 
     // Attempt send immediately when connected; device will deep-sleep on success.
     // Rate-limit attempts when sends fail to avoid hammering the server.

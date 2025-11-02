@@ -23,6 +23,30 @@ constexpr unsigned long SENSORS_READ_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 // Auth manager
 constexpr unsigned long AUTH_RETRY_INTERVAL_MS = 30000;
 
+// ==================== MQTT CONFIGURATION ====================
+// Enable/Disable MQTT protocol (set to false to use HTTP only)
+constexpr bool MQTT_ENABLED = true;
+
+// MQTT connection settings
+constexpr uint16_t AGRONOS_MQTT_PORT = 8883;              // 8883 for TLS, 1883 for plain
+constexpr bool AGRONOS_MQTT_USE_TLS = true;              // Use secure connection
+constexpr uint16_t AGRONOS_MQTT_KEEPALIVE = 60;          // Keep-alive interval (seconds)
+constexpr uint16_t AGRONOS_MQTT_RECONNECT_DELAY = 5000;  // Reconnection delay (ms)
+constexpr bool AGRONOS_MQTT_CLEAN_SESSION = true;        // Start with clean session
+
+// MQTT topics (will be formatted with device UUID)
+constexpr const char* AGRONOS_MQTT_TOPIC_DATA = "agronos/%s/data";
+constexpr const char* AGRONOS_MQTT_TOPIC_STATUS = "agronos/%s/status";
+constexpr const char* AGRONOS_MQTT_TOPIC_COMMAND = "agronos/%s/command";
+
+// MQTT QoS levels
+constexpr int AGRONOS_MQTT_QOS_DATA = 1;      // At least once for sensor data
+constexpr int AGRONOS_MQTT_QOS_STATUS = 0;    // Fire and forget for status
+
+// NOTE: MQTT server, username, and password are fetched dynamically 
+// from the backend using the JWT token after HTTP authentication.
+// ============================================================
+
 // Define sensors here only. To add/remove sensors modify this array.
 // Example: use the concrete sensor class names registered with the factory.
 constexpr SensorConfig SENSOR_CONFIGS[] = {

@@ -37,11 +37,48 @@ void Storage::setToken(const String &token) {
   prefs.end();
 }
 
+bool Storage::getMqttCredentials(MqttCredentials &creds) {
+  prefs.begin("mqtt", false);
+  creds.server = prefs.getString("server", "");
+  creds.username = prefs.getString("username", "");
+  creds.password = prefs.getString("password", "");
+  prefs.end();
+  
+  creds.isValid = (creds.server.length() > 0 && 
+                   creds.username.length() > 0 && 
+                   creds.password.length() > 0);
+  return creds.isValid;
+}
+
+void Storage::setMqttCredentials(const String &server, const String &username, const String &password) {
+  prefs.begin("mqtt", false);
+  prefs.putString("server", server);
+  prefs.putString("username", username);
+  prefs.putString("password", password);
+  prefs.end();
+  Serial.println("MQTT credentials saved to storage");
+}
+
+void Storage::clearMqttCredentials() {
+  prefs.begin("mqtt", false);
+  prefs.clear();
+  prefs.end();
+  Serial.println("MQTT credentials cleared");
+}
+
+bool Storage::hasMqttCredentials() {
+  MqttCredentials creds;
+  return getMqttCredentials(creds);
+}
+
 void Storage::clearAll() {
   prefs.begin("wifi", false);
   prefs.clear();
   prefs.end();
   prefs.begin("auth", false);
+  prefs.clear();
+  prefs.end();
+  prefs.begin("mqtt", false);
   prefs.clear();
   prefs.end();
 }

@@ -11,6 +11,10 @@ public:
   // Call from main loop to perform periodic attempts when needed
   void loop();
   String getSavedToken();
+  
+  // MQTT credential provisioning
+  bool fetchMqttCredentials();
+  bool hasMqttCredentials();
 
 private:
   Storage &storage;
@@ -21,4 +25,5 @@ private:
   unsigned long lastAttempt;
 
   bool performAuthRequest();
+  bool performMqttCredentialsRequest();
 };

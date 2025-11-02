@@ -2,6 +2,13 @@
 #include <Preferences.h>
 #include <Arduino.h>
 
+struct MqttCredentials {
+    String server;
+    String username;
+    String password;
+    bool isValid;
+};
+
 class Storage {
 public:
   Storage();
@@ -14,6 +21,12 @@ public:
   // Auth token
   String getToken();
   void setToken(const String &token);
+
+  // MQTT credentials
+  bool getMqttCredentials(MqttCredentials &creds);
+  void setMqttCredentials(const String &server, const String &username, const String &password);
+  void clearMqttCredentials();
+  bool hasMqttCredentials();
 
   // Clear stored credentials and token
   void clearAll();
