@@ -15,6 +15,8 @@
 #include "sensor.h"
 #include <esp_sleep.h>
 
+#include "mqtt_client.h"
+
 const char* apSsid = AP_SSID;
 const char* apPass = AP_PASS; // optional
 
@@ -31,6 +33,9 @@ AuthManager auth(storage, baseUrl, deviceUuid, deviceSecret, AUTH_RETRY_INTERVAL
 
 // Create DataSender instance to post sensor data
 DataSender sender(storage, baseUrl);
+
+// MQTT client for publishing sensor data (constructed but only used when MQTT_ENABLED is true)
+MqttClient mqttClient(storage, deviceUuid);
 
 // (timing handled by deep sleep across boots)
 
@@ -87,16 +92,22 @@ void setup()
             Serial.println("No auth token saved");
         }
     }
+    
+    // Link MQTT client to DataSender for MQTT support at runtime
+    if (MQTT_ENABLED) {
+        sender.setMqttClient(&mqttClient);
+    }
+    
     //print current mqtt credentials
-    // MqttCredentials creds;
-    // if (storage.getMqttCredentials(creds)) {
-    //     Serial.println("Saved MQTT credentials:");
-    //     Serial.print("  Server: "); Serial.println(creds.server);
-    //     Serial.print("  Username: "); Serial.println(creds.username);
-    //     Serial.print("  Password: "); Serial.println(creds.password);
-    // } else {
-    //     Serial.println("No saved MQTT credentials");
-    // }
+    MqttCredentials creds;
+    if (storage.getMqttCredentials(creds)) {
+        Serial.println("Saved MQTT credentials:");
+        Serial.print("  Server: "); Serial.println(creds.server);
+        Serial.print("  Username: "); Serial.println(creds.username);
+        Serial.print("  Password: "); Serial.println(creds.password);
+    } else {
+        Serial.println("No saved MQTT credentials");
+    }
     // storage.clearMqttCredentials(); // TESTING: always clear MQTT creds on boot
 }
 
@@ -144,10 +155,16 @@ void loop()
 
     // Let auth manager handle periodic auth attempts when needed
     auth.loop();
-    if (MQTT_ENABLED && !auth.hasMqttCredentials()) {
-        if (auth.getSavedToken().length() > 0) {
-            auth.fetchMqttCredentials();
+    
+    // Fetch MQTT credentials if needed and process MQTT events at runtime
+    if (MQTT_ENABLED) {
+        if (!auth.hasMqttCredentials()) {
+            if (auth.getSavedToken().length() > 0) {
+                auth.fetchMqttCredentials();
+            }
         }
+        // Process MQTT events (keep connection alive, handle callbacks)
+        mqttClient.loop();
     }
 
     // Attempt send immediately when connected; device will deep-sleep on success.

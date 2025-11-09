@@ -3,6 +3,9 @@
 #include <Arduino.h>
 #include "storage.h"
 
+// Forward declaration
+class MqttClient;
+
 struct SensorReading {
     const char* uuid;
     float value;
@@ -11,6 +14,9 @@ struct SensorReading {
 class DataSender {
 public:
     DataSender(Storage &storage, const char* baseUrl);
+
+    // Set MQTT client for MQTT support (optional)
+    void setMqttClient(MqttClient* client);
 
     // Send an array of SensorReading { uuid, value }
     bool sendReadings(const SensorReading* readings, size_t count);
@@ -24,6 +30,7 @@ public:
 private:
     Storage &storage;
     const char* baseUrl;
+    MqttClient* mqttClient; // Optional MQTT client
 
     String buildUrl() const;
     bool postJson(const String &json, const String &token);
