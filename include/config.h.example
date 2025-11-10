@@ -35,9 +35,9 @@ constexpr uint16_t AGRONOS_MQTT_RECONNECT_DELAY = 5000;  // Reconnection delay (
 constexpr bool AGRONOS_MQTT_CLEAN_SESSION = true;        // Start with clean session
 
 // MQTT topics (will be formatted with device UUID)
-constexpr const char* AGRONOS_MQTT_TOPIC_DATA = "agronos/%s/data";
-constexpr const char* AGRONOS_MQTT_TOPIC_STATUS = "agronos/%s/status";
-constexpr const char* AGRONOS_MQTT_TOPIC_COMMAND = "agronos/%s/command";
+constexpr const char* AGRONOS_MQTT_TOPIC_DATA = "devices/%s/sensors";
+constexpr const char* AGRONOS_MQTT_TOPIC_STATUS = "devices/%s/status";
+constexpr const char* AGRONOS_MQTT_TOPIC_COMMAND = "devices/%s/commands";
 
 // MQTT QoS levels
 constexpr int AGRONOS_MQTT_QOS_DATA = 1;      // At least once for sensor data
