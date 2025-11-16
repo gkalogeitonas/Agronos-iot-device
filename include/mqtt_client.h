@@ -13,6 +13,8 @@ public:
     bool connect();
     bool isConnected();
     void disconnect();
+    // Process pending MQTT events once (call after connect to stabilize)
+    void process();
     
     // Publish sensor data payload (JSON string built by DataSender)
     bool publishSensorDataPayload(const char* payload);

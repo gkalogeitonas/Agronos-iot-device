@@ -73,6 +73,9 @@ bool DataSender::sendReadings(const SensorReading* readings, size_t count) {
 
         bool success = false;
         if (alreadyConnected || connectedNow) {
+            // give the MQTT/TCP stack a moment to settle after connect
+            if (connectedNow) mqttClient->process();
+
             // publish payload created above
             success = mqttClient->publishSensorDataPayload(payload.c_str());
             if (success) {

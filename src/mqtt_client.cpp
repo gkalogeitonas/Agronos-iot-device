@@ -94,6 +94,14 @@ void MqttClient::disconnect() {
     }
 }
 
+void MqttClient::process() {
+    // Run a single pass of the underlying client to let the TCP/MQTT stack settle
+    if (mqttClient.connected()) {
+        mqttClient.loop();
+        delay(50);
+    }
+}
+
 bool MqttClient::publishSensorDataPayload(const char* payload) {
     if (!isConnected()) {
         Serial.println("MQTT not connected, cannot publish sensor data");
