@@ -40,7 +40,7 @@ MqttClient mqttClient(storage, deviceUuid);
 // (timing handled by deep sleep across boots)
 
 // Backoff for failed send attempts while connected (ms)
-constexpr unsigned long SEND_RETRY_BACKOFF_MS = 30UL * 1000UL; // 30s
+constexpr unsigned long SEND_RETRY_BACKOFF_MS = 10UL * 1000UL; // 30s
 static unsigned long lastSendAttempt = 0;
 
 // Sensor instances created from config
