@@ -13,10 +13,9 @@ public:
     bool connect();
     bool isConnected();
     void disconnect();
-    void loop(); // Must be called regularly
     
-    // Publish sensor data
-    bool publishSensorData(const SensorReading* readings, size_t count);
+    // Publish sensor data payload (JSON string built by DataSender)
+    bool publishSensorDataPayload(const char* payload);
     
     // Publish device status
     bool publishStatus(const char* status);
@@ -31,11 +30,8 @@ private:
     MqttCredentials credentials;
     bool credentialsLoaded;
     
-    unsigned long lastReconnectAttempt;
-    
     String buildTopic(const char* topicTemplate) const;
     bool loadCredentials();
-    bool reconnect();
     
     // Callback for incoming messages
     static void mqttCallback(char* topic, byte* payload, unsigned int length);

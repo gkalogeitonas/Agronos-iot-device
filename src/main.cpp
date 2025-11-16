@@ -46,6 +46,9 @@ static unsigned long lastSendAttempt = 0;
 // Sensor instances created from config
 static std::vector<std::unique_ptr<SensorBase>> sensors;
 
+// Forward declaration for one-time provisioning function
+static void oneTimeProvisioning();
+
 void tryAutoConnect() {
   String ssid, pass;
   if (!storage.getWifiCreds(ssid, pass)) return;
@@ -92,6 +95,8 @@ void setup()
             Serial.println("No auth token saved");
         }
     }
+    // Perform one-time provisioning (auth/mqtt credentials/connect)
+    oneTimeProvisioning();
     
     // Link MQTT client to DataSender for MQTT support at runtime
     if (MQTT_ENABLED) {
@@ -101,14 +106,50 @@ void setup()
     //print current mqtt credentials
     MqttCredentials creds;
     if (storage.getMqttCredentials(creds)) {
-        Serial.println("Saved MQTT credentials:");
-        Serial.print("  Server: "); Serial.println(creds.server);
-        Serial.print("  Username: "); Serial.println(creds.username);
-        Serial.print("  Password: "); Serial.println(creds.password);
+        // Serial.println("Saved MQTT credentials:");
+        // Serial.print("  Server: "); Serial.println(creds.server);
+        // Serial.print("  Username: "); Serial.println(creds.username);
+        // Serial.print("  Password: "); Serial.println(creds.password);
     } else {
-        Serial.println("No saved MQTT credentials");
+        // Serial.println("No saved MQTT credentials");
     }
     // storage.clearMqttCredentials(); // TESTING: always clear MQTT creds on boot
+}
+
+// One-time provisioning: perform auth, fetch MQTT credentials and attempt initial MQTT connect
+static void oneTimeProvisioning() {
+    if (WiFi.status() != WL_CONNECTED) return;
+
+    // Ensure we have a JWT token (try once synchronously)
+    String token = storage.getToken();
+    if (token.length() == 0) {
+        Serial.println("No token saved, attempting immediate authentication...");
+        auth.tryAuthenticateOnce();
+        token = storage.getToken();
+        if (token.length() > 0) Serial.println("Authentication succeeded and token was saved");
+    }
+
+    if (!MQTT_ENABLED) return;
+
+    // If we don't have MQTT credentials but we do have a token, fetch them once
+    if (!auth.hasMqttCredentials() && token.length() > 0) {
+        Serial.println("Fetching MQTT credentials (one-time)");
+        if (auth.fetchMqttCredentials()) {
+            Serial.println("MQTT credentials fetched and stored");
+        } else {
+            Serial.println("Failed to fetch MQTT credentials in setup");
+        }
+    }
+
+    // Try a single MQTT connect attempt if credentials are available
+    if (auth.hasMqttCredentials()) {
+        Serial.println("Attempting initial MQTT connect from setup");
+        if (mqttClient.connect()) {
+            Serial.println("Initial MQTT connect succeeded");
+        } else {
+            Serial.println("Initial MQTT connect failed (will retry in loop)");
+        }
+    }
 }
 
 // New helper: read sensors and send measurements
@@ -156,16 +197,7 @@ void loop()
     // Let auth manager handle periodic auth attempts when needed
     auth.loop();
     
-    // Fetch MQTT credentials if needed and process MQTT events at runtime
-    if (MQTT_ENABLED) {
-        if (!auth.hasMqttCredentials()) {
-            if (auth.getSavedToken().length() > 0) {
-                auth.fetchMqttCredentials();
-            }
-        }
-        // Process MQTT events (keep connection alive, handle callbacks)
-        mqttClient.loop();
-    }
+    // MQTT runtime processing disabled; initial connect happens in setup() only.
 
     // Attempt send immediately when connected; device will deep-sleep on success.
     // Rate-limit attempts when sends fail to avoid hammering the server.
@@ -189,6 +221,9 @@ void loop()
         Serial.println(SENSORS_READ_INTERVAL_MS);
 
         // Turn off WiFi cleanly to speed shutdown
+        if (MQTT_ENABLED) {
+            mqttClient.disconnect();
+        }
         WiFi.disconnect(true);
         WiFi.mode(WIFI_OFF);
         delay(50);

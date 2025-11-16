@@ -43,15 +43,41 @@ bool DataSender::postJson(const String &json, const String &token) {
 bool DataSender::sendReadings(const SensorReading* readings, size_t count) {
     if (count == 0 || readings == nullptr) return false;
 
+    // Build JSON payload once (used by MQTT or HTTP) — same shape as previous HTTP payload
+    const size_t capacity = JSON_ARRAY_SIZE(count) + count * JSON_OBJECT_SIZE(2) + 512;
+    DynamicJsonDocument doc(capacity);
+    JsonArray sensorsArr = doc.createNestedArray("sensors");
+    // Round values to a fixed number of decimal places before serializing
+    constexpr int VALUE_PRECISION = 2; // number of decimal places
+    const float factor = powf(10.0f, VALUE_PRECISION);
+    for (size_t i = 0; i < count; ++i) {
+        JsonObject obj = sensorsArr.createNestedObject();
+        obj["uuid"] = readings[i].uuid;
+        float rounded = roundf(readings[i].value * factor) / factor;
+        obj["value"] = rounded;
+    }
+
+    String payload;
+    serializeJson(doc, payload);
+
     // Try MQTT first if enabled and credentials are available (runtime check)
     if (MQTT_ENABLED && mqttClient != nullptr && storage.hasMqttCredentials()) {
         Serial.println("Attempting to send data via MQTT...");
 
-        // Try to connect if not already connected
-        if (mqttClient->isConnected() || mqttClient->connect()) {
-            bool success = mqttClient->publishSensorData(readings, count);
+        // Attempt a local connect only for this publish if not already connected
+        bool connectedNow = false;
+        bool alreadyConnected = mqttClient->isConnected();
+        if (!alreadyConnected) {
+            connectedNow = mqttClient->connect();
+        }
+
+        bool success = false;
+        if (alreadyConnected || connectedNow) {
+            // publish payload created above
+            success = mqttClient->publishSensorDataPayload(payload.c_str());
             if (success) {
                 Serial.println("Data sent successfully via MQTT");
+                if (connectedNow) mqttClient->disconnect();
                 return true;
             } else {
                 Serial.println("MQTT publish failed, falling back to HTTP");
@@ -59,6 +85,8 @@ bool DataSender::sendReadings(const SensorReading* readings, size_t count) {
         } else {
             Serial.println("MQTT connection failed, falling back to HTTP");
         }
+
+        if (connectedNow && !success) mqttClient->disconnect();
     }
 
     // Fallback to HTTP (or use HTTP if MQTT is not enabled/configured)
@@ -70,24 +98,7 @@ bool DataSender::sendReadings(const SensorReading* readings, size_t count) {
         return false;
     }
 
-    // Estimate JSON capacity conservatively
-    const size_t capacity = JSON_ARRAY_SIZE(count) + count * JSON_OBJECT_SIZE(2) + 256;
-    DynamicJsonDocument doc(capacity);
-
-    JsonArray sensors = doc.createNestedArray("sensors");
-    // Round values to a fixed number of decimal places before serializing
-    constexpr int VALUE_PRECISION = 2; // number of decimal places (e.g., 2 -> 22.50)
-    const float factor = powf(10.0f, VALUE_PRECISION);
-    for (size_t i = 0; i < count; ++i) {
-        JsonObject obj = sensors.createNestedObject();
-        obj["uuid"] = readings[i].uuid;
-        float rounded = roundf(readings[i].value * factor) / factor;
-        obj["value"] = rounded;
-    }
-
-    String out;
-    serializeJson(doc, out);
-    bool result = postJson(out, token);
+    bool result = postJson(payload, token);
     
     if (result) {
         Serial.println("Data sent successfully via HTTP");
