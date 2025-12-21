@@ -1,13 +1,11 @@
 #pragma once
 
-// Copy this file to include/config.h and fill in values before building.
-
 #include "sensor.h" // SensorConfig is defined in the sensor API header
 
 // Network / server
-constexpr const char* BASE_URL       = "https://example.com";
-constexpr const char* DEFAULT_UUID   = "YourDeviceUUID";
-constexpr const char* DEFAULT_SECRET = "YourDeviceSecret";
+constexpr const char* BASE_URL       = "https://agronos.kalogeitonas.xyz";
+constexpr const char* DEFAULT_UUID   = "Test-Device-1";
+constexpr const char* DEFAULT_SECRET = "Test-Device-1";
 
 // Captive portal AP
 constexpr const char* AP_SSID = "ESP_Config";
@@ -16,25 +14,26 @@ constexpr const char* AP_PASS = ""; // optional
 // DHT sensor
 constexpr int DHT11_PIN = 21;
 
-// non-blocking read interval (milliseconds)
-// Default: 5 minutes
-constexpr unsigned long SENSORS_READ_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+// non-blocking read interval
+constexpr unsigned long SENSORS_READ_INTERVAL_MS = 2 * 60 * 1000; // 2 minute
 
 // Auth manager
 constexpr unsigned long AUTH_RETRY_INTERVAL_MS = 30000;
+
 
 // ==================== MQTT CONFIGURATION ====================
 // Enable/Disable MQTT protocol (set to false to use HTTP only)
 constexpr bool MQTT_ENABLED = true;
 
 // MQTT connection settings
-constexpr uint16_t AGRONOS_MQTT_PORT = 8883;              // 8883 for TLS, 1883 for plain
-constexpr bool AGRONOS_MQTT_USE_TLS = true;              // Use secure connection
+constexpr uint16_t AGRONOS_MQTT_PORT = 1883;              // 8883 for TLS, 1883 for plain
+constexpr bool AGRONOS_MQTT_USE_TLS = false;              // Use secure connection
 constexpr uint16_t AGRONOS_MQTT_KEEPALIVE = 60;          // Keep-alive interval (seconds)
 constexpr uint16_t AGRONOS_MQTT_RECONNECT_DELAY = 5000;  // Reconnection delay (ms)
 constexpr bool AGRONOS_MQTT_CLEAN_SESSION = true;        // Start with clean session
 
 // MQTT topics (will be formatted with device UUID)
+// Use topics matching broker ACL: devices/<username>/# so EMQX allows publishes
 constexpr const char* AGRONOS_MQTT_TOPIC_DATA = "devices/%s/sensors";
 constexpr const char* AGRONOS_MQTT_TOPIC_STATUS = "devices/%s/status";
 constexpr const char* AGRONOS_MQTT_TOPIC_COMMAND = "devices/%s/commands";
@@ -47,10 +46,16 @@ constexpr int AGRONOS_MQTT_QOS_STATUS = 0;    // Fire and forget for status
 // from the backend using the JWT token after HTTP authentication.
 // ============================================================
 
+
 // Define sensors here only. To add/remove sensors modify this array.
-// Example: use the concrete sensor class names registered with the factory.
+// Use distinct types for temperature vs humidity for DHT11 as requested.
 constexpr SensorConfig SENSOR_CONFIGS[] = {
-    { "DHT11TemperatureReader", 21, "sensor-uuid-1" },
-    { "DHT11HumidityReader",    21, "sensor-uuid-2" }
+    { "DHT11TemperatureReader", 21, "Test-Device-1-Sensor-1" },
+    { "DHT11HumidityReader", 21, "Test-Device-1-Sensor-2" },
+    { "SoilMoistureSensor", 32, "Soil-Moisture-1" }
 };
 constexpr size_t SENSOR_CONFIG_COUNT = sizeof(SENSOR_CONFIGS) / sizeof(SENSOR_CONFIGS[0]);
+
+// Soil moisture sensor calibration (SEN0193)
+constexpr int SOIL_MOISTURE_AIR_VALUE = 2941;    // Dry
+constexpr int SOIL_MOISTURE_WATER_VALUE = 1324;  // Wet
