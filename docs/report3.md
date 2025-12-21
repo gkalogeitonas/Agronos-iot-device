@@ -36,11 +36,92 @@
 1.  **Sensor Abstraction Layer**:
     *   Χρήση του προτύπου σχεδίασης **Factory Pattern** (`SensorFactory`) για τη δυναμική δημιουργία αντικειμένων αισθητήρων βάσει των ρυθμίσεων (`config.h`).
     *   Όλοι οι αισθητήρες κληρονομούν από τη βασική κλάση `SensorBase`, επιτρέποντας την ομοιόμορφη διαχείριση διαφορετικών τύπων αισθητήρων (π.χ. DHT11, Soil Moisture).
-    *   Υλοποίηση μηχανισμού διαμοιρασμού πόρων (`dht_shared`) για αισθητήρες που μοιράζονται το ίδιο φυσικό pin (π.χ. θερμοκρασία και υγρασία από το ίδιο DHT11).
+
+
+## Νέος Αισθητήρας: Υγρασία Εδάφους (SoilMoistureSensor)
+
+Στο τελευταίο στάδιο της υλοποίησης προστέθηκε υποστήριξη για **αισθητήρα υγρασίας εδάφους** (capacitive soil moisture sensor, DFRobot SEN0193). Η υλοποίηση βρίσκεται στο `src/soil_moisture.cpp` και ενσωματώνεται στον υπάρχοντα μηχανισμό αισθητήρων χωρίς αλλαγές στο factory.
+
+Βασικά τεχνικά σημεία:
+
+*   **Είσοδος**: αναλογική ανάγνωση από pin ADC του ESP32 (στο παράδειγμα χρησιμοποιείται GPIO32 / ADC1).
+*   **Σταθερότητα μέτρησης**: γίνεται averaging πολλαπλών αναγνώσεων (π.χ. 10 samples) για μείωση θορύβου.
+*   **Βαθμονόμηση (Calibration)**: η μετατροπή σε ποσοστό απαιτεί δύο τιμές αναφοράς:
+    *   `SOIL_MOISTURE_AIR_VALUE` → μέτρηση στον αέρα/ξηρό (dry)
+    *   `SOIL_MOISTURE_WATER_VALUE` → μέτρηση σε νερό/πολύ υγρό (wet)
+    Οι τιμές αυτές ορίζονται στο `include/config.h` και πρέπει να προκύψουν εμπειρικά για το συγκεκριμένο setup (τροφοδοσία, καλωδίωση, αισθητήρας).
+*   **Έξοδος**: υπολογίζεται ποσοστό υγρασίας $0\%$ (dry) έως $100\%$ (wet) με clamping στο βαθμονομημένο εύρος.
+*   **Εγγραφή στον Factory Registry**: ο αισθητήρας καταχωρείται αυτόματα με `registerSensorFactory("SoilMoistureSensor", create_sensor_impl<SoilMoistureSensor>)`, ώστε να μπορεί να ενεργοποιηθεί αποκλειστικά μέσω `SENSOR_CONFIGS`.
+
+```c++
+#include "sensor.h"
+#include "config.h"
+#include "sensor_creator.h"
+#include <Arduino.h>
+
+/**
+ * DFRobot Capacitive Soil Moisture Sensor (SEN0193)
+ * - Analog output: 0-3V
+ * - Connected to GPIO32 (ADC1_CH4)
+ * - Requires calibration (air value = dry, water value = wet)
+ * - Returns moisture percentage: 0% (dry) to 100% (wet)
+ */
+class SoilMoistureSensor : public SensorBase {
+public:
+    SoilMoistureSensor(int pin, const char* uid)
+    : pin_(pin), uuid_(uid) {}
+    
+    const char* uuid() const override { return uuid_; }
+    
+    bool read(float &out) override {
+        // Average multiple readings for stability
+        const int numSamples = 10;
+        long sum = 0;
+        
+        for (int i = 0; i < numSamples; i++) {
+            sum += analogRead(pin_);
+            delay(10);
+        }
+        
+        int rawValue = sum / numSamples;
+        
+        // Calibration values (MUST be determined empirically)
+        // These are estimates scaled from Arduino 10-bit to ESP32 12-bit ADC
+        // To calibrate:
+        //   1. Expose sensor to air, note the raw value -> update airValue
+        //   2. Submerge in water (to limit line), note raw value -> update waterValue
+        const int airValue = SOIL_MOISTURE_AIR_VALUE;    // Dry soil (high value, low capacitance)
+        const int waterValue = SOIL_MOISTURE_WATER_VALUE;  // Wet soil (low value, high capacitance)
+        
+        // Clamp to calibrated range
+        if (rawValue > airValue) rawValue = airValue;
+        if (rawValue < waterValue) rawValue = waterValue;
+        
+        // Convert to percentage: 100% = wet (waterValue), 0% = dry (airValue)
+        float moisturePercent = 100.0f * (float)(airValue - rawValue) / (float)(airValue - waterValue);
+        
+        out = moisturePercent;
+        return true;
+    }
+    
+private:
+    int pin_;
+    const char* uuid_;
+};
+
+// Auto-register with factory using standard creator template
+static bool _reg = registerSensorFactory("SoilMoistureSensor", create_sensor_impl<SoilMoistureSensor>);
+```
+
+Παράδειγμα ενεργοποίησης στο configuration:
+
+```c++
+{ "SoilMoistureSensor", 32, "Soil-Moisture-1" }
+```
 
 2.  **AuthManager**:
     *   Υπεύθυνος για την αυθεντικοποίηση της συσκευής με το backend.
-    *   Διαχειρίζεται τον κύκλο ζωής του **JWT (JSON Web Token)**, ανανεώνοντας το όταν λήξει ή όταν η συσκευή επανεκκινεί.
+    *   Διαχειρίζεται τον κύκλο ζωής του **JWT (JSON Web Token)**.
 
 3.  **DataSender (Smart Router)**:
     *   Ο πυρήνας της λογικής αποστολής δεδομένων.

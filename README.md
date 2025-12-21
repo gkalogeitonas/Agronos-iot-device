@@ -23,7 +23,7 @@ Repository structure (important files)
 - Sensor abstraction
   - `include/sensor.h` — `SensorBase` interface and registration API.
   - `src/sensor_factory.cpp` — registry and factory that builds sensors from `SENSOR_CONFIGS`.
-  - Sensor implementations (examples): `src/dht11_temp.cpp`, `src/dht11_hum.cpp`, `src/simulated.cpp`.
+  - Sensor implementations (examples): `src/dht11_temp.cpp`, `src/dht11_hum.cpp`, `src/soil_moisture.cpp`, `src/simulated.cpp`.
   - `include/dht_shared.h` / `src/dht_shared.cpp` — shared DHT instance per pin (prevents read conflicts).
   - `include/sensor_creator.h` — templated helper to register creator functions.
 - Data transport
@@ -70,6 +70,15 @@ constexpr SensorConfig SENSOR_CONFIGS[] = {
 - `type` should match the sensor class name that is registered with the factory (or an existing alias).
 - `pin` is the GPIO used by the sensor (or -1 if not applicable).
 - `uuid` is the sensor UUID used by the server.
+
+Soil moisture sensor (SEN0193)
+
+This firmware includes support for a capacitive soil moisture sensor (DFRobot SEN0193) implemented in `src/soil_moisture.cpp`.
+
+- **Wiring**: connect the sensor analog output to an ESP32 ADC pin (default config uses GPIO32).
+- **Config**: add an entry like `{ "SoilMoistureSensor", 32, "Soil-Moisture-1" }` in `SENSOR_CONFIGS`.
+- **Output**: the firmware converts the raw ADC reading into a percentage $0\%$ (dry) to $100\%$ (wet).
+- **Calibration**: set `SOIL_MOISTURE_AIR_VALUE` (dry/air reading) and `SOIL_MOISTURE_WATER_VALUE` (wet/water reading) in `include/config.h` based on calibration  measurements in  dry and wet environment.
 
 Adding a new sensor (no factory changes required)
 1. Implement a class derived from `SensorBase` (prefer signature: `YourSensor(int pin, const char* uuid)`).
