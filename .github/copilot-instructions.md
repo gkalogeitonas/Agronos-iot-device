@@ -1,5 +1,7 @@
 # Agronos WiFi Sensor - AI Agent Instructions
 
+> **Important**: If you make changes that alter any architecture patterns, workflows, or conventions documented here, prompt the user to review and update this file to keep it current.
+
 ## Project Overview
 ESP32 firmware that reads sensors and publishes data via MQTT (primary) or HTTP (fallback). Built with PlatformIO + Arduino framework.
 
@@ -30,6 +32,15 @@ ESP32 firmware that reads sensors and publishes data via MQTT (primary) or HTTP 
 - [storage.cpp](../src/storage.cpp) wraps ESP32 Preferences API with namespaced keys
 - Three namespaces: `wifi`, `auth`, `mqtt` - keep separation when adding new storage
 - Always check if values changed before writing to minimize NVS wear
+
+### Captive Portal Provisioning
+- [wifi_portal.cpp](../src/wifi_portal.cpp): DNS + HTTP server for WiFi credential capture
+- **Trigger logic** in [main.cpp](../src/main.cpp#L52-L67): Portal starts if no saved credentials OR connection fails
+- **DNS hijacking**: `dnsServer` redirects ALL DNS queries to ESP32 IP (192.168.4.1)
+- **Multi-platform detection**: Handles Android `/generate_204`, iOS `/hotspot-detect.html`, Windows `/ncsi.txt`
+- **Form submission**: POST to `/save` → credentials stored → automatic ESP.restart()
+- **Auto-stop**: Portal halts when WiFi connects (checked in `handle()` loop)
+- Configuration: `AP_SSID` and `AP_PASS` in [config.h](../include/config.h.example)
 
 ### Authentication Flow
 1. Device boots → WiFi connect (or captive portal if no credentials)
