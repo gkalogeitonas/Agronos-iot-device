@@ -170,6 +170,66 @@ static bool _reg = registerSensorFactory("SoilMoistureSensor", create_sensor_imp
 *   Όλα τα περιφερειακά (WiFi, Bluetooth, Sensors) απενεργοποιούνται.
 *   Η διάρκεια ύπνου καθορίζεται από την παράμετρο `SENSORS_READ_INTERVAL_MS` (π.χ. 2 λεπτά).
 *   Η μνήμη RTC χρησιμοποιείται για τη διατήρηση κρίσιμων μετρητών μεταξύ των κύκλων ύπνου.
+*   **Wake-up από κουμπί**: Η συσκευή μπορεί να ξυπνήσει άμεσα από το Deep Sleep με πάτημα του φυσικού κουμπιού (GPIO 14), επιτρέποντας μετρήσεις κατά παραγγελία.
+
+## Λειτουργία Κουμπιού Επαναφοράς (Reset Button)
+
+Για την ευκολία της συντήρησης και της αρχικής ρύθμισης, η συσκευή διαθέτει φυσικό κουμπί επαναφοράς.
+
+### Υλικό (Hardware)
+*   **Σύνδεση**: Ένα momentary push button συνδέεται μεταξύ του GPIO 14 και GND.
+*   **Pull-up Resistor**: Χρησιμοποιείται ο εσωτερικός pull-up αντιστάτης του ESP32 (`INPUT_PULLUP`).
+*   **Λογική**: Το κουμπί είναι ενεργό σε χαμηλή στάθμη (active-low) — όταν πατηθεί, το pin διαβάζεται ως `LOW`.
+
+### Λειτουργίες
+
+1.  **Factory Reset (Επαναφορά Εργοστασιακών Ρυθμίσεων)**:
+    *   Κατά την εκκίνηση της συσκευής, εάν το κουμπί παραμείνει πατημένο για **10 δευτερόλεπτα** (ρυθμίζεται από την παράμετρο `BUTTON_LONG_PRESS_MS` στο `config.h`), η συσκευή διαγράφει όλα τα αποθηκευμένα δεδομένα:
+        *   Διαπιστευτήρια WiFi (SSID, password)
+        *   JWT authentication token
+        *   MQTT credentials (broker, username, password)
+    *   Μετά τη διαγραφή, η συσκευή επανεκκινείται αυτόματα και εισέρχεται σε λειτουργία provisioning (Captive Portal).
+
+2.  **Wake from Deep Sleep (Αφύπνιση από Deep Sleep)**:
+    *   Το κουμπί λειτουργεί ως wake-up source όταν η συσκευή βρίσκεται σε κατάσταση Deep Sleep.
+    *   Ένα πάτημα του κουμπιού ξυπνά άμεσα τη συσκευή, επιτρέποντας μετρήσεις και αποστολή δεδομένων κατά παραγγελία, χωρίς αναμονή του προγραμματισμένου timer.
+
+### Υλοποίηση
+
+Η λειτουργία υλοποιείται στο `src/main.cpp`:
+
+```cpp
+// Button pin definition
+constexpr int BUTTON_PIN = 14; // GPIO 14 for button
+
+// Check if button is held for more than 10 seconds to reset all storage
+static void checkButtonReset() {
+    if (digitalRead(BUTTON_PIN) == LOW) {
+        Serial.println("Button pressed, checking for long press...");
+        unsigned long pressStart = millis();
+        
+        while (digitalRead(BUTTON_PIN) == LOW) {
+            if (millis() - pressStart >= BUTTON_LONG_PRESS_MS) {
+                Serial.println("Long press detected! Wiping all storage data...");
+                storage.clearAll();
+                Serial.println("Storage cleared. Restarting device...");
+                delay(1000);
+                ESP.restart();
+            }
+            delay(100);
+        }
+        Serial.println("Button released before 10 seconds");
+    }
+}
+```
+
+Η ρουτίνα `checkButtonReset()` καλείται νωρίς στο `setup()`, πριν από την προσπάθεια σύνδεσης WiFi, ώστε να παρέχει άμεση δυνατότητα επαναφοράς. Για το wake-up από Deep Sleep, χρησιμοποιείται η συνάρτηση `esp_sleep_enable_ext0_wakeup(GPIO_NUM_14, 0)` πριν από την είσοδο σε ύπνο.
+
+### Πλεονεκτήματα
+*   **Χωρίς επαναφλασάρισμα (No Reflashing)**: Επαναφορά χωρίς ανάγκη επαναπρογραμματισμού του firmware.
+*   **Απλό Hardware**: Μόνο ένα φθηνό momentary button.
+*   **Ευελιξία**: Το χρονικό όριο (`BUTTON_LONG_PRESS_MS`) είναι ρυθμιζόμενο μέσω του `config.h`.
+*   **On-demand Readings**: Δυνατότητα άμεσης αφύπνισης για έλεγχο ή αποστολή δεδομένων.
 
 ## Μελλοντικές Επεκτάσεις
 

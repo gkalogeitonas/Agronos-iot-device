@@ -42,6 +42,16 @@ ESP32 firmware that reads sensors and publishes data via MQTT (primary) or HTTP 
 - **Auto-stop**: Portal halts when WiFi connects (checked in `handle()` loop)
 - Configuration: `AP_SSID` and `AP_PASS` in [config.h](../include/config.h.example)
 
+### Button Reset Functionality
+- **Hardware**: Physical button connected to GPIO 14 (configurable in `config.h`)
+- **Long Press Reset**: Holding button for 10+ seconds (defined by `BUTTON_LONG_PRESS_MS`) during boot wipes all storage:
+  - WiFi credentials
+  - JWT authentication token
+  - MQTT credentials
+- **Deep Sleep Wake**: Button press wakes device from deep sleep (configured via `esp_sleep_enable_ext0_wakeup()`)
+- **Implementation**: `checkButtonReset()` in [main.cpp](../src/main.cpp) runs early in `setup()` before WiFi connection
+- Pattern: Provides factory reset capability without reflashing firmware
+
 ### Authentication Flow
 1. Device boots → WiFi connect (or captive portal if no credentials)
 2. HTTP POST `/api/v1/device/login` → JWT token saved to NVS
@@ -56,6 +66,7 @@ ESP32 firmware that reads sensors and publishes data via MQTT (primary) or HTTP 
 - Sensor list: `SENSOR_CONFIGS[]` array maps sensor type to pin and UUID
 - To add/remove sensors: modify `SENSOR_CONFIGS` only - no factory changes needed
 - MQTT settings: `MQTT_ENABLED`, `AGRONOS_MQTT_*` constants
+- Button settings: `BUTTON_LONG_PRESS_MS` (duration for factory reset trigger)
 - Never hardcode URLs, pins, or credentials outside `config.h`
 
 ### Adding New Sensors (3-step process)

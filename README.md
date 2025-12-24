@@ -16,6 +16,20 @@ Provisioning & Authentication
 
 - After successful authentication, if MQTT is enabled (`MQTT_ENABLED` in `config.h`), the device automatically fetches MQTT credentials (broker address, username, password) from the backend using the JWT token and stores them in persistent storage for subsequent use.
 
+Button Functionality
+
+- A physical button connected to GPIO 14 provides factory reset and wake-up capabilities.
+- **Factory Reset**: Hold the button during device boot for 10 seconds (configurable via `BUTTON_LONG_PRESS_MS` in `config.h`) to wipe all stored data:
+  - WiFi credentials
+  - JWT authentication token
+  - MQTT credentials
+  
+  After the reset, the device automatically restarts and enters provisioning mode.
+
+- **Wake from Deep Sleep**: Pressing the button while the device is in deep sleep will wake it up immediately, allowing for on-demand sensor readings without waiting for the timer.
+
+- **Hardware Connection**: Connect one leg of a momentary push button to GPIO 14 and the other to GND. The internal pull-up resistor is enabled in software.
+
 Repository structure (important files)
 - `platformio.ini` — build configuration (PlatformIO).
 - `include/config.h` — single place to configure device, server, MQTT settings, and the sensor list (`SENSOR_CONFIGS`).
