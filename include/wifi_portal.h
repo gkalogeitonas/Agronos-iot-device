@@ -2,12 +2,14 @@
 #include <DNSServer.h>
 #include <WebServer.h>
 #include "storage.h"
+#include "sensor.h"
 #include <Arduino.h>
 #include <vector>
 
 class WifiPortal {
 public:
-  WifiPortal(Storage &storage, const char* apSsid = "ESP_Config", const char* apPass = "");
+  WifiPortal(Storage &storage, const char* apSsid = "ESP_Config", const char* apPass = "", 
+             const char* deviceUuid = "", const char* deviceSecret = "", const SensorConfig* sensorConfigs = nullptr, size_t sensorCount = 0);
   void start();
   void stop();
   void handle();
@@ -23,6 +25,10 @@ private:
   bool running;
   String indexPage;
   std::vector<String> availableNetworks;
+  const char* deviceUuid;
+  const char* deviceSecret;
+  const SensorConfig* sensorConfigs;
+  size_t sensorCount;
 
   void scanNetworks();
   String generateHtmlPage();

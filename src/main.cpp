@@ -25,7 +25,7 @@ constexpr int BUTTON_PIN = 14; // GPIO 14 for button
 
 // Replace global Preferences with Storage instance
 Storage storage;
-WifiPortal portal(storage, apSsid, apPass);
+WifiPortal portal(storage, apSsid, apPass, DEFAULT_UUID, DEFAULT_SECRET, SENSOR_CONFIGS, SENSOR_CONFIG_COUNT);
 
 const char* baseUrl = BASE_URL; // e.g. "http://example.com" (no trailing slash)
 const char* deviceUuid = DEFAULT_UUID;

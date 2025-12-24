@@ -1,8 +1,10 @@
 #include "wifi_portal.h"
 #include <WiFi.h>
 
-WifiPortal::WifiPortal(Storage &storage, const char* apSsid, const char* apPass)
-: storage(storage), webServer(80), ssid(apSsid), pass(apPass), apIP(192,168,4,1), running(false)
+WifiPortal::WifiPortal(Storage &storage, const char* apSsid, const char* apPass, 
+                       const char* deviceUuid, const char* deviceSecret, const SensorConfig* sensorConfigs, size_t sensorCount)
+: storage(storage), webServer(80), ssid(apSsid), pass(apPass), apIP(192,168,4,1), running(false),
+  deviceUuid(deviceUuid), deviceSecret(deviceSecret), sensorConfigs(sensorConfigs), sensorCount(sensorCount)
 {
   // indexPage will be generated dynamically in generateHtmlPage()
 }
@@ -64,17 +66,64 @@ String WifiPortal::generateHtmlPage() {
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-      body { font-family: Arial, sans-serif; margin: 20px; }
+      body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
       h3 { color: #333; }
-      form { margin-top: 20px; }
+      .device-info { background-color: #e8f4f8; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+      .device-info h4 { margin-top: 0; color: #1976d2; }
+      .device-uuid { font-size: 12px; color: #666; word-break: break-all; margin: 5px 0; }
+      .sensors-list { margin-left: 15px; font-size: 13px; }
+      .sensor-item { margin: 5px 0; color: #555; }
+      form { margin-top: 20px; background-color: white; padding: 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
       label { display: block; margin-bottom: 5px; font-weight: bold; }
-      select, input[type="password"] { width: 100%; max-width: 300px; padding: 8px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
-      input[type="submit"] { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+      select, input[type="password"] { width: 100%; max-width: 300px; padding: 8px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+      input[type="submit"] { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
       input[type="submit"]:hover { background-color: #45a049; }
       .info { color: #666; font-size: 14px; margin-bottom: 10px; }
     </style>
   </head>
   <body>
+    <div class="device-info">
+      <h4>Device Information</h4>
+      <div>
+        <strong>Device UUID:</strong>
+        <div class="device-uuid">)rawliteral";
+  
+  html += deviceUuid ? deviceUuid : "Not configured";
+  
+  html += R"rawliteral(</div>
+      </div>
+      
+      <div style="margin-top: 10px;">
+        <strong>Device Secret:</strong>
+        <div class="device-uuid">)rawliteral";
+  
+  html += deviceSecret ? deviceSecret : "Not configured";
+  
+  html += R"rawliteral(</div>
+      </div>
+      
+      <div style="margin-top: 15px;">
+        <strong>Sensors:</strong>
+        <div class="sensors-list">)rawliteral";
+  
+  // Add sensor information
+  if (sensorConfigs && sensorCount > 0) {
+    for (size_t i = 0; i < sensorCount; ++i) {
+      html += "<div class=\"sensor-item\">";
+      html += sensorConfigs[i].type;
+      html += " (UUID: ";
+      html += sensorConfigs[i].uuid;
+      html += ")</div>";
+    }
+  } else {
+    html += "<div class=\"sensor-item\">No sensors configured</div>";
+  }
+  
+  html += R"rawliteral(
+        </div>
+      </div>
+    </div>
+
     <h3>Configure WiFi</h3>
     <p class="info">Select your WiFi network and enter the password</p>
     <form action="/save" method="POST">
