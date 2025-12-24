@@ -110,7 +110,7 @@ String WifiPortal::generateHtmlPage() {
   if (sensorConfigs && sensorCount > 0) {
     for (size_t i = 0; i < sensorCount; ++i) {
       html += "<div class=\"sensor-item\">";
-      html += sensorConfigs[i].type;
+      html += sensorConfigs[i].displayName;
       html += " (UUID: ";
       html += sensorConfigs[i].uuid;
       html += ")</div>";

@@ -53,9 +53,9 @@ constexpr int AGRONOS_MQTT_QOS_STATUS = 0;    // Fire and forget for status
 // Define sensors here only. To add/remove sensors modify this array.
 // Use distinct types for temperature vs humidity for DHT11 as requested.
 constexpr SensorConfig SENSOR_CONFIGS[] = {
-    { "DHT11TemperatureReader", 21, "Test-Device-1-Sensor-1" },
-    { "DHT11HumidityReader", 21, "Test-Device-1-Sensor-2" },
-    { "SoilMoistureSensor", 32, "Soil-Moisture-1" }
+    { "DHT11TemperatureReader", 21, "Test-Device-1-Sensor-1", "Temperature" },
+    { "DHT11HumidityReader", 21, "Test-Device-1-Sensor-2", "Humidity" },
+    { "SoilMoistureSensor", 32, "Soil-Moisture-1", "Soil Moisture" }
 };
 constexpr size_t SENSOR_CONFIG_COUNT = sizeof(SENSOR_CONFIGS) / sizeof(SENSOR_CONFIGS[0]);
 
