@@ -52,6 +52,27 @@ static std::vector<std::unique_ptr<SensorBase>> sensors;
 // Forward declaration for one-time provisioning function
 static void oneTimeProvisioning();
 
+// Check if button is held for more than 10 seconds to reset all storage
+static void checkButtonReset() {
+    if (digitalRead(BUTTON_PIN) == LOW) {
+        Serial.println("Button pressed, checking for long press...");
+        unsigned long pressStart = millis();
+        const unsigned long LONG_PRESS_MS = 10000; // 10 seconds
+        
+        while (digitalRead(BUTTON_PIN) == LOW) {
+            if (millis() - pressStart >= LONG_PRESS_MS) {
+                Serial.println("Long press detected! Wiping all storage data...");
+                storage.clearAll();
+                Serial.println("Storage cleared. Restarting device...");
+                delay(1000);
+                ESP.restart();
+            }
+            delay(100);
+        }
+        Serial.println("Button released before 10 seconds");
+    }
+}
+
 void tryAutoConnect() {
   String ssid, pass;
   if (!storage.getWifiCreds(ssid, pass)) return;
@@ -78,6 +99,9 @@ void setup()
 
     // Button pin setup
     pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+    // Check for long press to reset storage
+    checkButtonReset();
 
     // create sensors from config
     sensors = createSensors();
