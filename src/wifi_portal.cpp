@@ -4,18 +4,106 @@
 WifiPortal::WifiPortal(Storage &storage, const char* apSsid, const char* apPass)
 : storage(storage), webServer(80), ssid(apSsid), pass(apPass), apIP(192,168,4,1), running(false)
 {
-  indexPage = R"rawliteral(
-  <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-  <body><h3>Configure WiFi</h3>
-  <form action="/save" method="POST">
-  SSID:<br><input name="ssid"><br>Password:<br><input name="pass" type="password"><br><br>
-  <input type="submit" value="Save">
-  </form></body></html>
-  )rawliteral";
+  // indexPage will be generated dynamically in generateHtmlPage()
 }
 
 void WifiPortal::onRoot() {
-  webServer.send(200, "text/html", indexPage);
+  String html = generateHtmlPage();
+  webServer.send(200, "text/html", html);
+}
+
+void WifiPortal::scanNetworks() {
+  availableNetworks.clear();
+  Serial.println("Scanning for available WiFi networks...");
+  
+  // Perform WiFi scan (set to async=true to non-blocking)
+  int numNetworks = WiFi.scanNetworks(false, false);
+  
+  if (numNetworks == 0) {
+    Serial.println("No networks found");
+    return;
+  }
+  
+  Serial.print("Found ");
+  Serial.print(numNetworks);
+  Serial.println(" networks");
+  
+  // Collect unique network names (remove duplicates)
+  for (int i = 0; i < numNetworks; ++i) {
+    String networkName = WiFi.SSID(i);
+    
+    // Skip empty SSIDs
+    if (networkName.length() == 0) continue;
+    
+    // Check if we already have this network in our list
+    bool isDuplicate = false;
+    for (const auto& existing : availableNetworks) {
+      if (existing == networkName) {
+        isDuplicate = true;
+        break;
+      }
+    }
+    
+    if (!isDuplicate) {
+      availableNetworks.push_back(networkName);
+      Serial.print("  - ");
+      Serial.print(networkName);
+      Serial.print(" (RSSI: ");
+      Serial.print(WiFi.RSSI(i));
+      Serial.println(")");
+    }
+  }
+  
+  WiFi.scanDelete(); // Free memory used by scan
+}
+
+String WifiPortal::generateHtmlPage() {
+  String html = R"rawliteral(
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; }
+      h3 { color: #333; }
+      form { margin-top: 20px; }
+      label { display: block; margin-bottom: 5px; font-weight: bold; }
+      select, input[type="password"] { width: 100%; max-width: 300px; padding: 8px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
+      input[type="submit"] { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+      input[type="submit"]:hover { background-color: #45a049; }
+      .info { color: #666; font-size: 14px; margin-bottom: 10px; }
+    </style>
+  </head>
+  <body>
+    <h3>Configure WiFi</h3>
+    <p class="info">Select your WiFi network and enter the password</p>
+    <form action="/save" method="POST">
+      <label for="ssid">WiFi Network:</label>
+      <select name="ssid" id="ssid" required>
+        <option value="">-- Select a network --</option>
+  )rawliteral";
+  
+  // Add available networks to the dropdown
+  for (const auto& network : availableNetworks) {
+    html += "        <option value=\"";
+    html += network;
+    html += "\">";
+    html += network;
+    html += "</option>\n";
+  }
+  
+  html += R"rawliteral(
+      </select>
+      <label for="pass">Password:</label>
+      <input type="password" name="pass" id="pass" placeholder="Enter WiFi password">
+      <br><br>
+      <input type="submit" value="Connect">
+    </form>
+  </body>
+  </html>
+  )rawliteral";
+  
+  return html;
 }
 
 void WifiPortal::onSave() {
@@ -35,6 +123,10 @@ void WifiPortal::start() {
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(apIP, apIP, IPAddress(255,255,255,0));
   WiFi.softAP(ssid, pass);
+  
+  // Scan for available networks before starting the server
+  scanNetworks();
+  
   dnsServer.start(53, "*", apIP);
   // Main portal page and save endpoint
   webServer.on("/", HTTP_GET, std::bind(&WifiPortal::onRoot, this));

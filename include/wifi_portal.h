@@ -3,6 +3,7 @@
 #include <WebServer.h>
 #include "storage.h"
 #include <Arduino.h>
+#include <vector>
 
 class WifiPortal {
 public:
@@ -21,7 +22,10 @@ private:
   IPAddress apIP;
   bool running;
   String indexPage;
+  std::vector<String> availableNetworks;
 
+  void scanNetworks();
+  String generateHtmlPage();
   void onRoot();
   void onSave();
 };
