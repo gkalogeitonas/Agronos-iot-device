@@ -57,10 +57,9 @@ static void checkButtonReset() {
     if (digitalRead(BUTTON_PIN) == LOW) {
         Serial.println("Button pressed, checking for long press...");
         unsigned long pressStart = millis();
-        const unsigned long LONG_PRESS_MS = 10000; // 10 seconds
         
         while (digitalRead(BUTTON_PIN) == LOW) {
-            if (millis() - pressStart >= LONG_PRESS_MS) {
+            if (millis() - pressStart >= BUTTON_LONG_PRESS_MS) {
                 Serial.println("Long press detected! Wiping all storage data...");
                 storage.clearAll();
                 Serial.println("Storage cleared. Restarting device...");

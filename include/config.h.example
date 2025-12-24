@@ -11,6 +11,9 @@ constexpr const char* DEFAULT_SECRET = "Test-Device-1";
 constexpr const char* AP_SSID = "ESP_Config";
 constexpr const char* AP_PASS = ""; // optional
 
+// Button configuration
+constexpr unsigned long BUTTON_LONG_PRESS_MS = 10000; // 10 seconds to trigger reset
+
 // DHT sensor
 constexpr int DHT11_PIN = 21;
 
