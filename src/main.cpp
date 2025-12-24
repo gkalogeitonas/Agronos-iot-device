@@ -20,6 +20,9 @@
 const char* apSsid = AP_SSID;
 const char* apPass = AP_PASS; // optional
 
+// Button pin definition
+constexpr int BUTTON_PIN = 14; // GPIO 14 for button
+
 // Replace global Preferences with Storage instance
 Storage storage;
 WifiPortal portal(storage, apSsid, apPass);
@@ -72,6 +75,9 @@ void tryAutoConnect() {
 void setup()
 {
     Serial.begin(115200);
+
+    // Button pin setup
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
 
     // create sensors from config
     sensors = createSensors();
@@ -228,6 +234,9 @@ void loop()
         WiFi.mode(WIFI_OFF);
         delay(50);
 
+        // Enable wakeup from button (GPIO 14, LOW = pressed)
+        esp_sleep_enable_ext0_wakeup(GPIO_NUM_14, 0);
+        // Also enable timer wakeup
         esp_sleep_enable_timer_wakeup(sleep_us);
         esp_deep_sleep_start();
     }
