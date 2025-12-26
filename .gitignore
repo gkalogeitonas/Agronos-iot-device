@@ -41,3 +41,4 @@ include/config.h
 secrets.h
 *.local
 *.env
+docs/report3.pdf

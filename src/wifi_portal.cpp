@@ -2,9 +2,11 @@
 #include <WiFi.h>
 
 WifiPortal::WifiPortal(Storage &storage, const char* apSsid, const char* apPass, 
-                       const char* deviceUuid, const char* deviceSecret, const SensorConfig* sensorConfigs, size_t sensorCount)
+                       const char* deviceUuid, const char* deviceSecret, const SensorConfig* sensorConfigs, size_t sensorCount,
+                       const char* baseUrl, bool mqttEnabled, unsigned long readIntervalMs)
 : storage(storage), webServer(80), ssid(apSsid), pass(apPass), apIP(192,168,4,1), running(false),
-  deviceUuid(deviceUuid), deviceSecret(deviceSecret), sensorConfigs(sensorConfigs), sensorCount(sensorCount)
+  deviceUuid(deviceUuid), deviceSecret(deviceSecret), sensorConfigs(sensorConfigs), sensorCount(sensorCount),
+  baseUrl(baseUrl), mqttEnabled(mqttEnabled), readIntervalMs(readIntervalMs)
 {
   // indexPage will be generated dynamically in generateHtmlPage()
 }
@@ -145,8 +147,40 @@ String WifiPortal::generateHtmlPage() {
       </select>
       <label for="pass">Password:</label>
       <input type="password" name="pass" id="pass" placeholder="Enter WiFi password">
+      
+      <h3 style="margin-top: 30px; color: #333;">Device Configuration</h3>
+      <p class="info">Configure device settings (optional)</p>
+      
+      <label for="base_url">Server URL:</label>
+      <input type="text" name="base_url" id="base_url" placeholder="https://example.com" value=")rawliteral";
+  
+  // Pre-populate base URL
+  html += baseUrl ? baseUrl : "";
+  
+  html += R"rawliteral(">
+      
+      <label for="read_interval_minutes">Read Interval (minutes):</label>
+      <input type="number" name="read_interval_minutes" id="read_interval_minutes" min="1" value=")rawliteral";
+  
+  // Pre-populate read interval in minutes
+  html += String(readIntervalMs / 60000);
+  
+  html += R"rawliteral(">
+      
+      <label>
+        <input type="checkbox" name="mqtt_enabled" id="mqtt_enabled" value="on")rawliteral";
+  
+  // Pre-populate MQTT enabled checkbox
+  if (mqttEnabled) {
+    html += " checked";
+  }
+  
+  html += R"rawliteral(>
+        Enable MQTT protocol (uncheck to use HTTP only)
+      </label>
+      
       <br><br>
-      <input type="submit" value="Connect">
+      <input type="submit" value="Save & Connect">
     </form>
   </body>
   </html>
@@ -158,10 +192,49 @@ String WifiPortal::generateHtmlPage() {
 void WifiPortal::onSave() {
   String ssidArg = webServer.arg("ssid");
   String passArg = webServer.arg("pass");
+  
+  // Extract device config parameters
+  String baseUrlArg = webServer.arg("base_url");
+  String readIntervalArg = webServer.arg("read_interval_minutes");
+  bool mqttEnabledArg = webServer.hasArg("mqtt_enabled");
+  
+  Serial.println("=== Portal Form Submission ===");
+  Serial.print("SSID: "); Serial.println(ssidArg);
+  Serial.print("Base URL arg: "); Serial.println(baseUrlArg);
+  Serial.print("Read Interval arg (minutes): "); Serial.println(readIntervalArg);
+  Serial.print("MQTT Enabled arg: "); Serial.println(mqttEnabledArg ? "true" : "false");
+  
   if (ssidArg.length() > 0) {
+    // Save WiFi credentials
     storage.setWifiCreds(ssidArg, passArg);
+    Serial.println("WiFi credentials saved");
+    
+    // Save device configuration if provided
+    if (baseUrlArg.length() > 0) {
+      storage.setBaseUrl(baseUrlArg);
+      Serial.print("Base URL saved: "); Serial.println(baseUrlArg);
+    } else {
+      Serial.println("Base URL not provided, skipping");
+    }
+    
+    if (readIntervalArg.length() > 0) {
+      unsigned long intervalMinutes = readIntervalArg.toInt();
+      unsigned long intervalMs = intervalMinutes * 60 * 1000;
+      Serial.print("Read Interval from form (minutes): "); Serial.println(intervalMinutes);
+      Serial.print("Read Interval converted to ms: "); Serial.println(intervalMs);
+      storage.setReadIntervalMs(intervalMs);
+      Serial.println("Read Interval saved to storage");
+    } else {
+      Serial.println("Read Interval not provided, skipping");
+    }
+    
+    // Save MQTT enabled flag (checkbox returns "on" when checked, absent when unchecked)
+    storage.setMqttEnabled(mqttEnabledArg);
+    Serial.print("MQTT Enabled saved: "); Serial.println(mqttEnabledArg ? "true" : "false");
+    
+    Serial.println("=== All settings saved, rebooting... ===");
     webServer.send(200, "text/html", "<h3>Saved. Rebooting...</h3>");
-    delay(1000);
+    delay(5000);
     ESP.restart();
   } else {
     webServer.send(400, "text/plain", "SSID required");

@@ -28,6 +28,14 @@ public:
   void clearMqttCredentials();
   bool hasMqttCredentials();
 
+  // Device configuration
+  String getBaseUrl();
+  void setBaseUrl(const String &url);
+  bool getMqttEnabled();
+  void setMqttEnabled(bool enabled);
+  unsigned long getReadIntervalMs();
+  void setReadIntervalMs(unsigned long ms);
+
   // Clear stored credentials and token
   void clearAll();
 

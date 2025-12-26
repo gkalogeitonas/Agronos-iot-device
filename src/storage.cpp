@@ -71,6 +71,53 @@ bool Storage::hasMqttCredentials() {
   return getMqttCredentials(creds);
 }
 
+String Storage::getBaseUrl() {
+  prefs.begin("config", false);
+  String url = prefs.getString("base_url", "");
+  prefs.end();
+  return url;
+}
+
+void Storage::setBaseUrl(const String &url) {
+  prefs.begin("config", false);
+  String old = prefs.getString("base_url", "");
+  if (url != old) prefs.putString("base_url", url);
+  prefs.end();
+}
+
+bool Storage::getMqttEnabled() {
+  prefs.begin("config", false);
+  // Use getBool with no default to detect if key exists
+  // If key doesn't exist, isKey returns false
+  bool enabled = true; // default value
+  if (prefs.isKey("mqtt_enabled")) {
+    enabled = prefs.getBool("mqtt_enabled", true);
+  }
+  prefs.end();
+  return enabled;
+}
+
+void Storage::setMqttEnabled(bool enabled) {
+  prefs.begin("config", false);
+  bool old = prefs.getBool("mqtt_enabled", true);
+  if (enabled != old) prefs.putBool("mqtt_enabled", enabled);
+  prefs.end();
+}
+
+unsigned long Storage::getReadIntervalMs() {
+  prefs.begin("config", false);
+  unsigned long interval = prefs.getULong("interval_ms", 0);
+  prefs.end();
+  return interval;
+}
+
+void Storage::setReadIntervalMs(unsigned long ms) {
+  prefs.begin("config", false);
+  unsigned long old = prefs.getULong("interval_ms", 0);
+  if (ms != old) prefs.putULong("interval_ms", ms);
+  prefs.end();
+}
+
 void Storage::clearAll() {
   prefs.begin("wifi", false);
   prefs.clear();
@@ -79,6 +126,9 @@ void Storage::clearAll() {
   prefs.clear();
   prefs.end();
   prefs.begin("mqtt", false);
+  prefs.clear();
+  prefs.end();
+  prefs.begin("config", false);
   prefs.clear();
   prefs.end();
 }

@@ -25,20 +25,17 @@ constexpr int BUTTON_PIN = 14; // GPIO 14 for button
 
 // Replace global Preferences with Storage instance
 Storage storage;
-WifiPortal portal(storage, apSsid, apPass, DEFAULT_UUID, DEFAULT_SECRET, SENSOR_CONFIGS, SENSOR_CONFIG_COUNT);
 
-const char* baseUrl = BASE_URL; // e.g. "http://example.com" (no trailing slash)
-const char* deviceUuid = DEFAULT_UUID;
-const char* deviceSecret = DEFAULT_SECRET;
+// Runtime configuration variables (loaded from storage in setup)
+String baseUrl;
+bool mqttEnabled;
+unsigned long readIntervalMs;
 
-// Auth manager
-AuthManager auth(storage, baseUrl, deviceUuid, deviceSecret, AUTH_RETRY_INTERVAL_MS);
-
-// Create DataSender instance to post sensor data
-DataSender sender(storage, baseUrl);
-
-// MQTT client for publishing sensor data (constructed but only used when MQTT_ENABLED is true)
-MqttClient mqttClient(storage, deviceUuid);
+// These will be constructed after loading config
+WifiPortal* portal = nullptr;
+AuthManager* auth = nullptr;
+DataSender* sender = nullptr;
+MqttClient* mqttClient = nullptr;
 
 // (timing handled by deep sleep across boots)
 
@@ -88,7 +85,6 @@ void tryAutoConnect() {
   }
   Serial.println("Failed to connect to saved WiFi");
   //storage.setWifiCreds("", ""); // clear invalid creds
-  portal.start();
   Serial.println("Starting portal due to failed WiFi connection");
 }
 
@@ -102,6 +98,46 @@ void setup()
     // Check for long press to reset storage
     checkButtonReset();
 
+    // Load device configuration from storage (use config.h defaults if not set)
+    baseUrl = storage.getBaseUrl();
+    if (baseUrl.length() == 0) {
+        baseUrl = BASE_URL;
+        storage.setBaseUrl(baseUrl);
+    }
+    
+    readIntervalMs = storage.getReadIntervalMs();
+    Serial.print("DEBUG: Read interval from storage: ");
+    Serial.print(readIntervalMs);
+    Serial.println(" ms");
+    
+    if (readIntervalMs == 0) {
+        Serial.println("DEBUG: Read interval is 0, using config.h default");
+        readIntervalMs = SENSORS_READ_INTERVAL_MS;
+        Serial.print("DEBUG: Default SENSORS_READ_INTERVAL_MS = ");
+        Serial.print(readIntervalMs);
+        Serial.println(" ms");
+        storage.setReadIntervalMs(readIntervalMs);
+        Serial.println("DEBUG: Saved default to storage");
+    } else {
+        Serial.println("DEBUG: Using read interval from storage");
+    }
+    
+    mqttEnabled = storage.getMqttEnabled();
+    // Default is true if not set (handled in getMqttEnabled)
+    
+    Serial.println("Device Configuration:");
+    Serial.print("  Base URL: "); Serial.println(baseUrl);
+    Serial.print("  MQTT Enabled: "); Serial.println(mqttEnabled ? "Yes" : "No");
+    Serial.print("  Read Interval: "); Serial.print(readIntervalMs / 1000); Serial.println(" seconds");
+
+    // Now construct objects with loaded configuration
+    portal = new WifiPortal(storage, apSsid, apPass, DEFAULT_UUID, DEFAULT_SECRET, 
+                           SENSOR_CONFIGS, SENSOR_CONFIG_COUNT, 
+                           baseUrl.c_str(), mqttEnabled, readIntervalMs);
+    auth = new AuthManager(storage, baseUrl.c_str(), DEFAULT_UUID, DEFAULT_SECRET, AUTH_RETRY_INTERVAL_MS);
+    sender = new DataSender(storage, baseUrl.c_str());
+    mqttClient = new MqttClient(storage, DEFAULT_UUID);
+
     // create sensors from config
     sensors = createSensors();
 
@@ -111,7 +147,7 @@ void setup()
 
     tryAutoConnect();
     if (WiFi.status() != WL_CONNECTED) {
-        portal.start();
+        portal->start();
     } else {
         Serial.print("IP: "); Serial.println(WiFi.localIP());
 
@@ -128,8 +164,8 @@ void setup()
     oneTimeProvisioning();
     
     // Link MQTT client to DataSender for MQTT support at runtime
-    if (MQTT_ENABLED) {
-        sender.setMqttClient(&mqttClient);
+    if (mqttEnabled) {
+        sender->setMqttClient(mqttClient);
     }
     
     //print current mqtt credentials
@@ -153,17 +189,17 @@ static void oneTimeProvisioning() {
     String token = storage.getToken();
     if (token.length() == 0) {
         Serial.println("No token saved, attempting immediate authentication...");
-        auth.tryAuthenticateOnce();
+        auth->tryAuthenticateOnce();
         token = storage.getToken();
         if (token.length() > 0) Serial.println("Authentication succeeded and token was saved");
     }
 
-    if (!MQTT_ENABLED) return;
+    if (!mqttEnabled) return;
 
     // If we don't have MQTT credentials but we do have a token, fetch them once
-    if (!auth.hasMqttCredentials() && token.length() > 0) {
+    if (!auth->hasMqttCredentials() && token.length() > 0) {
         Serial.println("Fetching MQTT credentials (one-time)");
-        if (auth.fetchMqttCredentials()) {
+        if (auth->fetchMqttCredentials()) {
             Serial.println("MQTT credentials fetched and stored");
         } else {
             Serial.println("Failed to fetch MQTT credentials in setup");
@@ -171,9 +207,9 @@ static void oneTimeProvisioning() {
     }
 
     // Try a single MQTT connect attempt if credentials are available
-    if (auth.hasMqttCredentials()) {
+    if (auth->hasMqttCredentials()) {
         Serial.println("Attempting initial MQTT connect from setup");
-        if (mqttClient.connect()) {
+        if (mqttClient->connect()) {
             Serial.println("Initial MQTT connect succeeded");
         } else {
             Serial.println("Initial MQTT connect failed (will retry in loop)");
@@ -206,14 +242,14 @@ static bool sendMeasurements() {
         return false;
     }
 
-    bool ok = sender.sendReadings(readings.data(), readings.size());
+    bool ok = sender->sendReadings(readings.data(), readings.size());
     Serial.print("Data send result: "); Serial.println(ok ? "OK" : "FAILED");
     return ok;
 }
 
 void loop()
 {
-    portal.handle();
+    portal->handle();
 
     // Only run auth and send measurements when connected to Wi‑Fi
     if (WiFi.status() != WL_CONNECTED) {
@@ -224,7 +260,7 @@ void loop()
 
 
     // Let auth manager handle periodic auth attempts when needed
-    auth.loop();
+    auth->loop();
     
     // MQTT runtime processing disabled; initial connect happens in setup() only.
 
@@ -245,13 +281,13 @@ void loop()
         // reset lastSendAttempt to avoid delaying next cycle after wake
         lastSendAttempt = 0;
         // Enter deep sleep for the configured interval (milliseconds -> microseconds)
-        uint64_t sleep_us = (uint64_t)SENSORS_READ_INTERVAL_MS * 1000ULL;
+        uint64_t sleep_us = (uint64_t)readIntervalMs * 1000ULL;
         Serial.print("Measurements sent, entering deep sleep for ms: ");
-        Serial.println(SENSORS_READ_INTERVAL_MS);
+        Serial.println(readIntervalMs);
 
         // Turn off WiFi cleanly to speed shutdown
-        if (MQTT_ENABLED) {
-            mqttClient.disconnect();
+        if (mqttEnabled) {
+            mqttClient->disconnect();
         }
         WiFi.disconnect(true);
         WiFi.mode(WIFI_OFF);
