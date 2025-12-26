@@ -49,7 +49,7 @@
 *   **Βαθμονόμηση (Calibration)**: η μετατροπή σε ποσοστό απαιτεί δύο τιμές αναφοράς:
     *   `SOIL_MOISTURE_AIR_VALUE` → μέτρηση στον αέρα/ξηρό (dry)
     *   `SOIL_MOISTURE_WATER_VALUE` → μέτρηση σε νερό/πολύ υγρό (wet)
-    Οι τιμές αυτές ορίζονται στο `include/config.h` και πρέπει να προκύψουν εμπειρικά για το συγκεκριμένο setup (τροφοδοσία, καλωδίωση, αισθητήρας).
+    Οι τιμές αυτές ορίζονται στο `include/config.h`.
 *   **Έξοδος**: υπολογίζεται ποσοστό υγρασίας $0\%$ (dry) έως $100\%$ (wet) με clamping στο βαθμονομημένο εύρος.
 *   **Εγγραφή στον Factory Registry**: ο αισθητήρας καταχωρείται αυτόματα με `registerSensorFactory("SoilMoistureSensor", create_sensor_impl<SoilMoistureSensor>)`, ώστε να μπορεί να ενεργοποιηθεί αποκλειστικά μέσω `SENSOR_CONFIGS`.
 
@@ -337,96 +337,6 @@ void Storage::saveConfig(const DeviceConfig& cfg) {
 *   **Cache Synchronization**: Ενημέρωση του cache μετά την επιτυχή εγγραφή
 *   **Single Transaction**: Όλες οι αλλαγές σε ένα άνοιγμα/κλείσιμο NVS
 
-#### 7. Individual Setters με Delegation
-Οι ξεχωριστές setter μεθόδοι διατηρούνται για backwards compatibility και delegάρουν στην `saveConfig()`:
-
-```cpp
-void Storage::setBaseUrl(const String &url) {
-    DeviceConfig cfg = _cache;
-    cfg.baseUrl = url;
-    saveConfig(cfg);
-}
-
-void Storage::setReadIntervalMs(unsigned long ms) {
-    DeviceConfig cfg = _cache;
-    cfg.readIntervalMs = ms;
-    saveConfig(cfg);
-}
-```
-
-### Βελτιώσεις Απόδοσης
-
-Σύγκριση πρόσβασης NVS (old vs new approach):
-
-**Προηγούμενη Υλοποίηση**:
-```
-getBaseUrl()         → NVS open, read, close
-getReadIntervalMs()  → NVS open, read, close
-getMqttEnabled()     → NVS open, read, close
-Total: 3 NVS transactions
-```
-
-**Νέα Υλοποίηση**:
-```
-getBaseUrl()         → ensureConfigLoaded() → NVS open, read all, close
-                    → return from cache
-getReadIntervalMs()  → return from cache (already loaded)
-getMqttEnabled()     → return from cache (already loaded)
-Total: 1 NVS transaction
-```
-
-**Βελτίωση**: ~66% λιγότερες NVS προσβάσεις
-
-### Προστασία της Flash Μνήμης
-
-Το ESP32 NVS χρησιμοποιεί Flash memory με περιορισμένο αριθμό write cycles (~100,000). Η νέα υλοποίηση:
-
-*   **Μηδενικές εγγραφές για αμετάβλητες τιμές**: Το `saveConfig()` ελέγχει κάθε πεδίο πριν την εγγραφή
-*   **Bulk updates**: Όλες οι αλλαγές σε μία NVS transaction αντί για πολλαπλές
-*   **Cache invalidation**: Το `clearAll()` σηματοδοτεί ότι το cache δεν είναι πλέον έγκυρο
-
-### Απλοποίηση του main.cpp
-
-Η φόρτωση ρυθμίσεων στο `setup()` απλοποιήθηκε σημαντικά:
-
-**Πριν**:
-```cpp
-baseUrl = storage.getBaseUrl();
-if (baseUrl.length() == 0) {
-    baseUrl = BASE_URL;
-    storage.setBaseUrl(baseUrl);
-}
-
-readIntervalMs = storage.getReadIntervalMs();
-if (readIntervalMs == 0) {
-    readIntervalMs = SENSORS_READ_INTERVAL_MS;
-    storage.setReadIntervalMs(readIntervalMs);
-}
-
-mqttEnabled = storage.getMqttEnabled(MQTT_ENABLED);
-// ~20 lines total
-```
-
-**Μετά**:
-```cpp
-DeviceConfig defaults = {
-    .baseUrl = BASE_URL,
-    .readIntervalMs = SENSORS_READ_INTERVAL_MS,
-    .mqttEnabled = MQTT_ENABLED
-};
-storage.loadDefaults(defaults);
-
-baseUrl = storage.getBaseUrl();
-readIntervalMs = storage.getReadIntervalMs();
-mqttEnabled = storage.getMqttEnabled();
-// ~6 lines total
-```
-
-### Επίλυση του ESP32 NVS Key Length Bug
-
-Κατά τη διάρκεια της υλοποίησης, ανακαλύφθηκε ότι το ESP32 NVS έχει όριο **15 χαρακτήρων** για τα ονόματα των keys. Το αρχικό key `"read_interval_ms"` (16 χαρακτήρες) προκαλούσε σφάλμα `KEY_TOO_LONG` και αποτυχία αποθήκευσης.
-
-**Λύση**: Το key μετονομάστηκε σε `"interval_ms"` (11 χαρακτήρες), λύνοντας το πρόβλημα και επιτρέποντας επιτυχή αποθήκευση της τιμής.
 
 ### Πλεονεκτήματα του Config Struct Pattern
 
@@ -473,7 +383,7 @@ mqttEnabled = storage.getMqttEnabled();
 
 *   Μετά από κάθε κύκλο μέτρησης και αποστολής, η συσκευή εισέρχεται σε κατάσταση **Deep Sleep**.
 *   Όλα τα περιφερειακά (WiFi, Bluetooth, Sensors) απενεργοποιούνται.
-*   Η διάρκεια ύπνου καθορίζεται από την παράμετρο `SENSORS_READ_INTERVAL_MS` (π.χ. 2 λεπτά).
+*   Η διάρκεια ύπνου καθορίζεται από την παράμετρο **Read Interval**, η οποία έχει προεπιλεγμένη τιμή **3 λεπτά** (ορίζεται από το `SENSORS_READ_INTERVAL_MS` στο `config.h`). Ο χρήστης μπορεί να μεταβάλει αυτό το διάστημα δυναμικά μέσω του Captive Portal κατά την αρχική ρύθμιση ή επανασύνδεση της συσκευής, χωρίς ανάγκη επαναμεταγλώττισης του firmware.
 *   Η μνήμη RTC χρησιμοποιείται για τη διατήρηση κρίσιμων μετρητών μεταξύ των κύκλων ύπνου.
 *   **Wake-up από κουμπί**: Η συσκευή μπορεί να ξυπνήσει άμεσα από το Deep Sleep με πάτημα του φυσικού κουμπιού (GPIO 14), επιτρέποντας μετρήσεις κατά παραγγελία.
 
@@ -536,8 +446,3 @@ static void checkButtonReset() {
 *   **Ευελιξία**: Το χρονικό όριο (`BUTTON_LONG_PRESS_MS`) είναι ρυθμιζόμενο μέσω του `config.h`.
 *   **On-demand Readings**: Δυνατότητα άμεσης αφύπνισης για έλεγχο ή αποστολή δεδομένων.
 
-## Μελλοντικές Επεκτάσεις
-
-*   **OTA Updates**: Υποστήριξη Over-The-Air αναβαθμίσεων του firmware.
-*   **LoRaWAN**: Διερεύνηση ενσωμάτωσης LoRa για περιοχές χωρίς κάλυψη WiFi.
-*   **Local Buffering**: Αποθήκευση μετρήσεων στην flash μνήμη όταν δεν υπάρχει καθόλου δίκτυο και μαζική αποστολή κατά την επανασύνδεση.
