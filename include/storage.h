@@ -31,7 +31,7 @@ public:
   // Device configuration
   String getBaseUrl();
   void setBaseUrl(const String &url);
-  bool getMqttEnabled();
+  bool getMqttEnabled(bool defaultValue = true);
   void setMqttEnabled(bool enabled);
   unsigned long getReadIntervalMs();
   void setReadIntervalMs(unsigned long ms);

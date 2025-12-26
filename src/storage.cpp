@@ -85,13 +85,11 @@ void Storage::setBaseUrl(const String &url) {
   prefs.end();
 }
 
-bool Storage::getMqttEnabled() {
+bool Storage::getMqttEnabled(bool defaultValue) {
   prefs.begin("config", false);
-  // Use getBool with no default to detect if key exists
-  // If key doesn't exist, isKey returns false
-  bool enabled = true; // default value
+  bool enabled = defaultValue; // use provided default
   if (prefs.isKey("mqtt_enabled")) {
-    enabled = prefs.getBool("mqtt_enabled", true);
+    enabled = prefs.getBool("mqtt_enabled", defaultValue);
   }
   prefs.end();
   return enabled;

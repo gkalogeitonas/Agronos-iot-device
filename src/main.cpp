@@ -106,24 +106,13 @@ void setup()
     }
     
     readIntervalMs = storage.getReadIntervalMs();
-    Serial.print("DEBUG: Read interval from storage: ");
-    Serial.print(readIntervalMs);
-    Serial.println(" ms");
-    
     if (readIntervalMs == 0) {
-        Serial.println("DEBUG: Read interval is 0, using config.h default");
         readIntervalMs = SENSORS_READ_INTERVAL_MS;
-        Serial.print("DEBUG: Default SENSORS_READ_INTERVAL_MS = ");
-        Serial.print(readIntervalMs);
-        Serial.println(" ms");
         storage.setReadIntervalMs(readIntervalMs);
-        Serial.println("DEBUG: Saved default to storage");
-    } else {
-        Serial.println("DEBUG: Using read interval from storage");
     }
     
-    mqttEnabled = storage.getMqttEnabled();
-    // Default is true if not set (handled in getMqttEnabled)
+    mqttEnabled = storage.getMqttEnabled(MQTT_ENABLED);
+    // MQTT defaults are saved implicitly by getMqttEnabled()
     
     Serial.println("Device Configuration:");
     Serial.print("  Base URL: "); Serial.println(baseUrl);
@@ -141,9 +130,6 @@ void setup()
     // create sensors from config
     sensors = createSensors();
 
-    // TEST: clear saved WiFi credentials on every boot so portal always starts.
-    // Comment out the next line when you no longer want this behavior.
-    //storage.setWifiCreds("", "");
 
     tryAutoConnect();
     if (WiFi.status() != WL_CONNECTED) {

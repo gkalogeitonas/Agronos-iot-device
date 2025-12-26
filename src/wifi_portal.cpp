@@ -198,41 +198,24 @@ void WifiPortal::onSave() {
   String readIntervalArg = webServer.arg("read_interval_minutes");
   bool mqttEnabledArg = webServer.hasArg("mqtt_enabled");
   
-  Serial.println("=== Portal Form Submission ===");
-  Serial.print("SSID: "); Serial.println(ssidArg);
-  Serial.print("Base URL arg: "); Serial.println(baseUrlArg);
-  Serial.print("Read Interval arg (minutes): "); Serial.println(readIntervalArg);
-  Serial.print("MQTT Enabled arg: "); Serial.println(mqttEnabledArg ? "true" : "false");
-  
   if (ssidArg.length() > 0) {
     // Save WiFi credentials
     storage.setWifiCreds(ssidArg, passArg);
-    Serial.println("WiFi credentials saved");
     
     // Save device configuration if provided
     if (baseUrlArg.length() > 0) {
       storage.setBaseUrl(baseUrlArg);
-      Serial.print("Base URL saved: "); Serial.println(baseUrlArg);
-    } else {
-      Serial.println("Base URL not provided, skipping");
     }
     
     if (readIntervalArg.length() > 0) {
       unsigned long intervalMinutes = readIntervalArg.toInt();
       unsigned long intervalMs = intervalMinutes * 60 * 1000;
-      Serial.print("Read Interval from form (minutes): "); Serial.println(intervalMinutes);
-      Serial.print("Read Interval converted to ms: "); Serial.println(intervalMs);
       storage.setReadIntervalMs(intervalMs);
-      Serial.println("Read Interval saved to storage");
-    } else {
-      Serial.println("Read Interval not provided, skipping");
     }
     
     // Save MQTT enabled flag (checkbox returns "on" when checked, absent when unchecked)
     storage.setMqttEnabled(mqttEnabledArg);
-    Serial.print("MQTT Enabled saved: "); Serial.println(mqttEnabledArg ? "true" : "false");
     
-    Serial.println("=== All settings saved, rebooting... ===");
     webServer.send(200, "text/html", "<h3>Saved. Rebooting...</h3>");
     delay(5000);
     ESP.restart();
