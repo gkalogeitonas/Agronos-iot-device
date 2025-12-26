@@ -25,7 +25,7 @@
     *   Χρήση του **Factory Pattern** για τη δυναμική δημιουργία αντικειμένων αισθητήρων βάσει του `config.h`.
 *   **Αυθεντικοποίηση**: Μηχανισμός αυτόματης σύνδεσης στο backend (Login) για την απόκτηση και αποθήκευση του JWT token σε μόνιμη μνήμη (Persistent Storage).
 
-Η παρούσα αναφορά επεκτείνει την παραπάνω λειτουργικότητα, εισάγοντας προηγμένες δυνατότητες όπως το πρωτόκολλο MQTT, τη διαχείριση ενέργειας (Deep Sleep) και τη βελτιωμένη αρχιτεκτονική "Smart Routing".
+Η παρούσα αναφορά επεκτείνει την παραπάνω λειτουργικότητα, εισάγοντας προηγμένες δυνατότητες όπως το πρωτόκολλο MQTT, τη διαχείριση ενέργειας (Deep Sleep), τη δυναμική ρύθμιση παραμέτρων (Runtime Configuration) μέσω του Captive Portal και τη βελτιωμένη αρχιτεκτονική "Smart Routing".
 
 ## Αρχιτεκτονική Υλικολογισμικού (Firmware Architecture)
 
@@ -37,6 +37,24 @@
     *   Χρήση του προτύπου σχεδίασης **Factory Pattern** (`SensorFactory`) για τη δυναμική δημιουργία αντικειμένων αισθητήρων βάσει των ρυθμίσεων (`config.h`).
     *   Όλοι οι αισθητήρες κληρονομούν από τη βασική κλάση `SensorBase`, επιτρέποντας την ομοιόμορφη διαχείριση διαφορετικών τύπων αισθητήρων (π.χ. DHT11, Soil Moisture).
 
+2.  **WifiPortal (Enhanced Captive Portal)**:
+    *   Υπεύθυνος για την αρχική ρύθμιση WiFi και τη ρύθμιση παραμέτρων συσκευής σε πραγματικό χρόνο (runtime configuration).
+    *   Σαρώνει αυτόματα διαθέσιμα δίκτυα WiFi και τα εμφανίζει σε dropdown menu.
+    *   Παρέχει ενοποιημένη φόρμα για WiFi credentials και device configuration (Server URL, Read Interval, MQTT Enable/Disable).
+
+3.  **AuthManager**:
+    *   Υπεύθυνος για την αυθεντικοποίηση της συσκευής με το backend.
+    *   Διαχειρίζεται τον κύκλο ζωής του **JWT (JSON Web Token)**.
+
+4.  **DataSender (Smart Router)**:
+    *   Ο πυρήνας της λογικής αποστολής δεδομένων.
+    *   Κατασκευάζει τα JSON payloads με τις μετρήσεις.
+    *   Αποφασίζει δυναμικά ποιο πρωτόκολλο θα χρησιμοποιηθεί (MQTT ή HTTP) βάσει διαθεσιμότητας και ρυθμίσεων.
+
+5.  **Storage (NVS)**:
+    *   Διαχειρίζεται τη μόνιμη μνήμη (Non-Volatile Storage) του ESP32.
+    *   Αποθηκεύει κρυπτογραφημένα τα διαπιστευτήρια WiFi, το JWT token και τα διαπιστευτήρια MQTT.
+    *   Υλοποιεί το **Config Struct Pattern** με lazy-loading cache για βελτιστοποίηση της πρόσβασης στο NVS και προστασία από φθορά της Flash μνήμης.
 
 ## Νέος Αισθητήρας: Υγρασία Εδάφους (SoilMoistureSensor)
 
@@ -119,25 +137,6 @@ static bool _reg = registerSensorFactory("SoilMoistureSensor", create_sensor_imp
 { "SoilMoistureSensor", 32, "Soil-Moisture-1" }
 ```
 
-2.  **WifiPortal (Enhanced Captive Portal)**:
-    *   Υπεύθυνος για την αρχική ρύθμιση WiFi και τη ρύθμιση παραμέτρων συσκευής σε πραγματικό χρόνο (runtime configuration).
-    *   Σαρώνει αυτόματα διαθέσιμα δίκτυα WiFi και τα εμφανίζει σε dropdown menu.
-    *   Παρέχει ενοποιημένη φόρμα για WiFi credentials και device configuration (Server URL, Read Interval, MQTT Enable/Disable).
-
-3.  **AuthManager**:
-    *   Υπεύθυνος για την αυθεντικοποίηση της συσκευής με το backend.
-    *   Διαχειρίζεται τον κύκλο ζωής του **JWT (JSON Web Token)**.
-
-3.  **DataSender (Smart Router)**:
-    *   Ο πυρήνας της λογικής αποστολής δεδομένων.
-    *   Κατασκευάζει τα JSON payloads με τις μετρήσεις.
-    *   Αποφασίζει δυναμικά ποιο πρωτόκολλο θα χρησιμοποιηθεί (MQTT ή HTTP) βάσει διαθεσιμότητας και ρυθμίσεων.
-
-4.  **Storage (NVS)**:
-    *   Διαχειρίζεται τη μόνιμη μνήμη (Non-Volatile Storage) του ESP32.
-    *   Αποθηκεύει κρυπτογραφημένα τα διαπιστευτήρια WiFi, το JWT token και τα διαπιστευτήρια MQTT.
-    *   Υλοποιεί το **Config Struct Pattern** με lazy-loading cache για βελτιστοποίηση της πρόσβασης στο NVS και προστασία από φθορά της Flash μνήμης.
-
 ## Βελτιωμένο Captive Portal με Runtime Configuration
 
 Το Captive Portal επεκτάθηκε σημαντικά για να υποστηρίζει δυναμική ρύθμιση παραμέτρων της συσκευής χωρίς ανάγκη επαναμεταγλώττισης του firmware.
@@ -187,12 +186,10 @@ WifiPortal(Storage &storage, const char* apSsid, const char* apPass,
     *   `base_url` → Server URL
     *   `interval_ms` → Read Interval (μετατρέπεται από λεπτά σε milliseconds)
     *   `mqtt_enabled` → Boolean flag (checkbox presence detection)
-4.  Στέλνει επιβεβαίωση στον χρήστη και επανεκκινεί τη συσκευή
-5.  Μετά την επανεκκίνηση, η συσκευή φορτώνει τις νέες ρυθμίσεις από το NVS
+4.  Μετά την επανεκκίνηση, η συσκευή φορτώνει τις νέες ρυθμίσεις από το NVS
 
 ### Πλεονεκτήματα
 
-*   **Ευελιξία στην Ανάπτυξη**: Μια εικόνα firmware μπορεί να χρησιμοποιηθεί σε διαφορετικά περιβάλλοντα (development, staging, production) χωρίς επαναμεταγλώττιση
 *   **Εύκολη Συντήρηση**: Αλλαγή του backend URL ή του read interval χωρίς reflashing
 *   **User-Friendly**: Όλες οι ρυθμίσεις σε μία ενοποιημένη φόρμα με προεπιλεγμένες τιμές
 *   **Network Scanning**: Αποφυγή λαθών πληκτρολόγησης του SSID μέσω dropdown επιλογής
@@ -206,19 +203,18 @@ WifiPortal(Storage &storage, const char* apSsid, const char* apPass,
 
 *(Εικόνα του Captive Portal UI θα προστεθεί)*
 
-## Refactoring του Storage Layer: Config Struct Pattern
+## Σχεδιασμός του Storage Layer: Config Struct Pattern
 
-Το Storage subsystem αναδιαμορφώθηκε πλήρως για να υλοποιήσει το **Config Struct Pattern** με **Lazy-Loading Cache**, βελτιώνοντας σημαντικά την απόδοση και τη συντηρησιμότητα του κώδικα.
+Με την εισαγωγή του Runtime Configuration, οι παράμετροι λειτουργίας (URL, intervals, MQTT) έπρεπε να μεταφερθούν από το `config.h` (compile-time constants) στη μνήμη NVS. Για τη βέλτιστη διαχείριση αυτών των δεδομένων, σχεδιάστηκε και υλοποιήθηκε το **Config Struct Pattern** με **Lazy-Loading Cache**.
 
-### Προβλήματα της Προηγούμενης Υλοποίησης
+### Σκεπτικό Σχεδίασης
 
-Η αρχική υλοποίηση χρησιμοποιούσε ξεχωριστές getter/setter μεθόδους για κάθε παράμετρο ρύθμισης:
-*   Κάθε `get` επιχείρηση άνοιγε το NVS, διάβαζε μία τιμή, και έκλεινε το NVS
-*   Πολλαπλές προσβάσεις NVS για διάφορες παραμέτρους (performance overhead)
-*   Fallback logic διασκορπισμένη στο `main.cpp`
-*   Πιθανές εγγραφές NVS ακόμα και όταν οι τιμές δεν άλλαζαν (φθορά Flash)
+H  αρχιτεκτονική σχεδιάστηκε για να προσφέρει:
+*   **Ελαχιστοποίηση Προσβάσεων NVS**: Ομαδοποίηση αναγνώσεων/εγγραφών.
+*   **Κεντρική Διαχείριση Defaults**: Οι προεπιλογές από το `config.h` ενσωματώνονται διαφανώς.
+*   **Προστασία Flash**: Εγγραφή στο NVS μόνο όταν οι τιμές πραγματικά αλλάζουν.
 
-### Νέα Αρχιτεκτονική
+### Αρχιτεκτονική
 
 #### 1. DeviceConfig Struct
 Όλες οι παράμετροι ρύθμισης ομαδοποιούνται σε ένα ενιαίο `struct`:
@@ -253,7 +249,7 @@ DeviceConfig defaults = {
 storage.loadDefaults(defaults);
 ```
 
-Επιστρέφει `this` για method chaining.
+Επιστρέφει `this` για δυνατότητα  method chaining.
 
 #### 4. Lazy-Loading με ensureConfigLoaded()
 Η ιδιωτική μέθοδος `ensureConfigLoaded()` εκτελείται μόνο στην πρώτη πρόσβαση:
@@ -300,7 +296,6 @@ bool Storage::getMqttEnabled() {
 }
 ```
 
-Δεν υπάρχει πλέον NVS access σε κάθε κλήση — μόνο ανάγνωση από RAM cache.
 
 #### 6. Atomic Configuration Saving
 Η μέθοδος `saveConfig()` παρέχει ατομική αποθήκευση ολόκληρου του configuration struct:
@@ -340,7 +335,7 @@ void Storage::saveConfig(const DeviceConfig& cfg) {
 
 ### Πλεονεκτήματα του Config Struct Pattern
 
-1.  **Απόδοση**: 66% λιγότερες NVS προσβάσεις μετά την αρχική φόρτωση
+1.  **Απόδοση**: λιγότερες NVS προσβάσεις μετά την αρχική φόρτωση
 2.  **Προστασία Flash**: Μηδενικές περιττές εγγραφές, παρατεταμένη διάρκεια ζωής συσκευής
 3.  **Συντηρησιμότητα**: Όλες οι παράμετροι σε ένα struct, εύκολη επέκταση
 4.  **Consistency**: Atomic updates μέσω `saveConfig()`, αποφυγή μερικώς ενημερωμένης κατάστασης
@@ -368,7 +363,7 @@ void Storage::saveConfig(const DeviceConfig& cfg) {
 
 1.  **Συλλογή Δεδομένων**: Η συσκευή ξυπνά από Deep Sleep, διαβάζει τους αισθητήρες και δημιουργεί το πακέτο δεδομένων.
 2.  **Προσπάθεια MQTT (Προτιμώμενο)**:
-    *   Η συσκευή ελέγχει αν έχει αποθηκευμένα διαπιστευτήρια MQTT.
+    *   Η συσκευή ελέγχει αν το MQTT είναι ενεργοποιημένο στις ρυθμίσεις και αν υπάρχουν αποθηκευμένα διαπιστευτήρια.
     *   Επιχειρεί σύνδεση στον MQTT Broker (θύρα 1883 ή 8883 για TLS).
     *   Δημοσιεύει τα δεδομένα στο θέμα `devices/{uuid}/sensors` με **QoS 1** (At least once).
 3.  **HTTP Fallback (Εφεδρικό)**:
