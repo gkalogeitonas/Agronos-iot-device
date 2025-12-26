@@ -119,7 +119,12 @@ static bool _reg = registerSensorFactory("SoilMoistureSensor", create_sensor_imp
 { "SoilMoistureSensor", 32, "Soil-Moisture-1" }
 ```
 
-2.  **AuthManager**:
+2.  **WifiPortal (Enhanced Captive Portal)**:
+    *   Υπεύθυνος για την αρχική ρύθμιση WiFi και τη ρύθμιση παραμέτρων συσκευής σε πραγματικό χρόνο (runtime configuration).
+    *   Σαρώνει αυτόματα διαθέσιμα δίκτυα WiFi και τα εμφανίζει σε dropdown menu.
+    *   Παρέχει ενοποιημένη φόρμα για WiFi credentials και device configuration (Server URL, Read Interval, MQTT Enable/Disable).
+
+3.  **AuthManager**:
     *   Υπεύθυνος για την αυθεντικοποίηση της συσκευής με το backend.
     *   Διαχειρίζεται τον κύκλο ζωής του **JWT (JSON Web Token)**.
 
@@ -131,6 +136,306 @@ static bool _reg = registerSensorFactory("SoilMoistureSensor", create_sensor_imp
 4.  **Storage (NVS)**:
     *   Διαχειρίζεται τη μόνιμη μνήμη (Non-Volatile Storage) του ESP32.
     *   Αποθηκεύει κρυπτογραφημένα τα διαπιστευτήρια WiFi, το JWT token και τα διαπιστευτήρια MQTT.
+    *   Υλοποιεί το **Config Struct Pattern** με lazy-loading cache για βελτιστοποίηση της πρόσβασης στο NVS και προστασία από φθορά της Flash μνήμης.
+
+## Βελτιωμένο Captive Portal με Runtime Configuration
+
+Το Captive Portal επεκτάθηκε σημαντικά για να υποστηρίζει δυναμική ρύθμιση παραμέτρων της συσκευής χωρίς ανάγκη επαναμεταγλώττισης του firmware.
+
+### Χαρακτηριστικά
+
+1.  **Αυτόματη Σάρωση WiFi**: Κατά την εκκίνηση του portal, η συσκευή σαρώνει τα διαθέσιμα δίκτυα WiFi και τα εμφανίζει σε dropdown menu, απαλείφοντας τα διπλότυπα SSID.
+
+2.  **Ενοποιημένη Φόρμα Ρυθμίσεων**: Η φόρμα συνδυάζει:
+    *   **WiFi Configuration**: Επιλογή δικτύου και εισαγωγή κωδικού πρόσβασης
+    *   **Device Configuration**: Ρυθμίσεις συσκευής που προηγουμένως ήταν hardcoded στο `config.h`:
+        *   **Server URL**: Η διεύθυνση του backend server (π.χ. `https://agronos.kalogeitonas.xyz`)
+        *   **Read Interval**: Το διάστημα μεταξύ των μετρήσεων σε λεπτά
+        *   **MQTT Enabled**: Checkbox για ενεργοποίηση/απενεργοποίηση του πρωτοκόλλου MQTT
+
+3.  **Pre-population των Τιμών**: Η φόρμα εμφανίζει τις τρέχουσες αποθηκευμένες τιμές (ή τις προεπιλογές από `config.h`), επιτρέποντας εύκολη επεξεργασία χωρίς επανεισαγωγή όλων των πεδίων.
+
+4.  **Πληροφορίες Συσκευής**: Το portal εμφανίζει:
+    *   Device UUID
+    *   Device Secret
+    *   Λίστα ρυθμισμένων αισθητήρων με τα UUIDs τους
+
+### Αρχιτεκτονική Υλοποίησης
+
+Η κλάση `WifiPortal` δέχεται τις τρέχουσες τιμές ρύθμισης μέσω του constructor και τις χρησιμοποιεί για την παραγωγή της HTML φόρμας:
+
+```cpp
+WifiPortal(Storage &storage, const char* apSsid, const char* apPass, 
+           const char* deviceUuid, const char* deviceSecret, 
+           const SensorConfig* sensorConfigs, size_t sensorCount,
+           const char* baseUrl, bool mqttEnabled, unsigned long readIntervalMs);
+```
+
+Η μέθοδος `generateHtmlPage()` δημιουργεί δυναμικά την HTML φόρμα, ενσωματώνοντας:
+*   Dropdown με τα σαρωμένα WiFi δίκτυα
+*   Text input για το Server URL με pre-filled τιμή
+*   Number input για το Read Interval (σε λεπτά) με pre-filled τιμή
+*   Checkbox για το MQTT με κατάσταση checked/unchecked βάσει της τρέχουσας ρύθμισης
+
+### Ροή Αποθήκευσης
+
+Όταν ο χρήστης υποβάλει τη φόρμα:
+
+1.  Η μέθοδος `onSave()` εξάγει όλες τις παραμέτρους από το POST request
+2.  Αποθηκεύει τα WiFi credentials στο NVS namespace `"wifi"`
+3.  Αποθηκεύει τις ρυθμίσεις συσκευής στο NVS namespace `"config"`:
+    *   `base_url` → Server URL
+    *   `interval_ms` → Read Interval (μετατρέπεται από λεπτά σε milliseconds)
+    *   `mqtt_enabled` → Boolean flag (checkbox presence detection)
+4.  Στέλνει επιβεβαίωση στον χρήστη και επανεκκινεί τη συσκευή
+5.  Μετά την επανεκκίνηση, η συσκευή φορτώνει τις νέες ρυθμίσεις από το NVS
+
+### Πλεονεκτήματα
+
+*   **Ευελιξία στην Ανάπτυξη**: Μια εικόνα firmware μπορεί να χρησιμοποιηθεί σε διαφορετικά περιβάλλοντα (development, staging, production) χωρίς επαναμεταγλώττιση
+*   **Εύκολη Συντήρηση**: Αλλαγή του backend URL ή του read interval χωρίς reflashing
+*   **User-Friendly**: Όλες οι ρυθμίσεις σε μία ενοποιημένη φόρμα με προεπιλεγμένες τιμές
+*   **Network Scanning**: Αποφυγή λαθών πληκτρολόγησης του SSID μέσω dropdown επιλογής
+
+### Τεχνικά Χαρακτηριστικά του Portal
+
+*   **DNS Hijacking**: Ο DNS server ανακατευθύνει όλα τα queries στο ESP32 (192.168.4.1) για αυτόματη εμφάνιση του portal
+*   **Multi-Platform Detection**: Υποστηρίζει captive portal detection για Android (`/generate_204`), iOS (`/hotspot-detect.html`), Windows (`/ncsi.txt`)
+*   **Auto-Stop**: Το portal σταματά αυτόματα όταν επιτευχθεί σύνδεση WiFi
+*   **Responsive Design**: HTML φόρμα με CSS styling για καλή εμφάνιση σε mobile και desktop συσκευές
+
+*(Εικόνα του Captive Portal UI θα προστεθεί)*
+
+## Refactoring του Storage Layer: Config Struct Pattern
+
+Το Storage subsystem αναδιαμορφώθηκε πλήρως για να υλοποιήσει το **Config Struct Pattern** με **Lazy-Loading Cache**, βελτιώνοντας σημαντικά την απόδοση και τη συντηρησιμότητα του κώδικα.
+
+### Προβλήματα της Προηγούμενης Υλοποίησης
+
+Η αρχική υλοποίηση χρησιμοποιούσε ξεχωριστές getter/setter μεθόδους για κάθε παράμετρο ρύθμισης:
+*   Κάθε `get` επιχείρηση άνοιγε το NVS, διάβαζε μία τιμή, και έκλεινε το NVS
+*   Πολλαπλές προσβάσεις NVS για διάφορες παραμέτρους (performance overhead)
+*   Fallback logic διασκορπισμένη στο `main.cpp`
+*   Πιθανές εγγραφές NVS ακόμα και όταν οι τιμές δεν άλλαζαν (φθορά Flash)
+
+### Νέα Αρχιτεκτονική
+
+#### 1. DeviceConfig Struct
+Όλες οι παράμετροι ρύθμισης ομαδοποιούνται σε ένα ενιαίο `struct`:
+
+```cpp
+struct DeviceConfig {
+    String baseUrl;
+    unsigned long readIntervalMs;
+    bool mqttEnabled;
+};
+```
+
+#### 2. State Management με Cache
+Η κλάση `Storage` διατηρεί τρεις ιδιωτικές μεταβλητές κατάστασης:
+
+```cpp
+private:
+    DeviceConfig _cache;           // Cached values in RAM
+    DeviceConfig _defaults;        // Fallback defaults from config.h
+    bool _configLoaded = false;    // Lazy-loading flag
+```
+
+#### 3. Dependency Injection για Defaults
+Η μέθοδος `loadDefaults()` επιτρέπει την ένεση των προεπιλεγμένων τιμών από το `config.h`:
+
+```cpp
+DeviceConfig defaults = {
+    .baseUrl = BASE_URL,
+    .readIntervalMs = SENSORS_READ_INTERVAL_MS,
+    .mqttEnabled = MQTT_ENABLED
+};
+storage.loadDefaults(defaults);
+```
+
+Επιστρέφει `this` για method chaining.
+
+#### 4. Lazy-Loading με ensureConfigLoaded()
+Η ιδιωτική μέθοδος `ensureConfigLoaded()` εκτελείται μόνο στην πρώτη πρόσβαση:
+
+```cpp
+void Storage::ensureConfigLoaded() {
+    if (_configLoaded) return;  // Already loaded, skip
+    
+    prefs.begin("config", true); // Read-only mode
+    
+    // Load entire config with defaults as fallback
+    _cache.baseUrl = prefs.getString("base_url", _defaults.baseUrl);
+    _cache.readIntervalMs = prefs.getULong("interval_ms", _defaults.readIntervalMs);
+    _cache.mqttEnabled = prefs.getBool("mqtt_enabled", _defaults.mqttEnabled);
+    
+    prefs.end();
+    _configLoaded = true;
+}
+```
+
+Χαρακτηριστικά:
+*   **Μία μόνο φορά**: Η μέθοδος εκτελείται μόνο την πρώτη φορά που ζητηθεί κάποια παράμετρος
+*   **Bulk Loading**: Όλες οι παράμετροι φορτώνονται μαζί σε ένα άνοιγμα/κλείσιμο NVS
+*   **Read-Only Mode**: Το NVS ανοίγει σε read-only mode για ασφάλεια
+*   **Automatic Fallback**: Χρήση `_defaults` όταν το NVS δεν έχει αποθηκευμένη τιμή
+
+#### 5. Transparent Getters
+Οι getter μέθοδοι απλοποιούνται δραστικά:
+
+```cpp
+String Storage::getBaseUrl() {
+    ensureConfigLoaded();
+    return _cache.baseUrl;
+}
+
+unsigned long Storage::getReadIntervalMs() {
+    ensureConfigLoaded();
+    return _cache.readIntervalMs;
+}
+
+bool Storage::getMqttEnabled() {
+    ensureConfigLoaded();
+    return _cache.mqttEnabled;
+}
+```
+
+Δεν υπάρχει πλέον NVS access σε κάθε κλήση — μόνο ανάγνωση από RAM cache.
+
+#### 6. Atomic Configuration Saving
+Η μέθοδος `saveConfig()` παρέχει ατομική αποθήκευση ολόκληρου του configuration struct:
+
+```cpp
+void Storage::saveConfig(const DeviceConfig& cfg) {
+    ensureConfigLoaded(); // Ensure cache is valid
+    
+    prefs.begin("config", false);
+    
+    // Only write changed fields (Flash wear prevention)
+    if (cfg.baseUrl != _cache.baseUrl) {
+        prefs.putString("base_url", cfg.baseUrl);
+    }
+    
+    if (cfg.readIntervalMs != _cache.readIntervalMs) {
+        prefs.putULong("interval_ms", cfg.readIntervalMs);
+    }
+    
+    if (cfg.mqttEnabled != _cache.mqttEnabled) {
+        prefs.putBool("mqtt_enabled", cfg.mqttEnabled);
+    }
+    
+    prefs.end();
+    
+    // Update cache to match
+    _cache = cfg;
+}
+```
+
+Κρίσιμα σημεία:
+*   **Change Detection**: Σύγκριση νέων τιμών με cache πριν την εγγραφή
+*   **Conditional Writes**: Εγγραφή στο NVS μόνο αν η τιμή άλλαξε
+*   **Cache Synchronization**: Ενημέρωση του cache μετά την επιτυχή εγγραφή
+*   **Single Transaction**: Όλες οι αλλαγές σε ένα άνοιγμα/κλείσιμο NVS
+
+#### 7. Individual Setters με Delegation
+Οι ξεχωριστές setter μεθόδοι διατηρούνται για backwards compatibility και delegάρουν στην `saveConfig()`:
+
+```cpp
+void Storage::setBaseUrl(const String &url) {
+    DeviceConfig cfg = _cache;
+    cfg.baseUrl = url;
+    saveConfig(cfg);
+}
+
+void Storage::setReadIntervalMs(unsigned long ms) {
+    DeviceConfig cfg = _cache;
+    cfg.readIntervalMs = ms;
+    saveConfig(cfg);
+}
+```
+
+### Βελτιώσεις Απόδοσης
+
+Σύγκριση πρόσβασης NVS (old vs new approach):
+
+**Προηγούμενη Υλοποίηση**:
+```
+getBaseUrl()         → NVS open, read, close
+getReadIntervalMs()  → NVS open, read, close
+getMqttEnabled()     → NVS open, read, close
+Total: 3 NVS transactions
+```
+
+**Νέα Υλοποίηση**:
+```
+getBaseUrl()         → ensureConfigLoaded() → NVS open, read all, close
+                    → return from cache
+getReadIntervalMs()  → return from cache (already loaded)
+getMqttEnabled()     → return from cache (already loaded)
+Total: 1 NVS transaction
+```
+
+**Βελτίωση**: ~66% λιγότερες NVS προσβάσεις
+
+### Προστασία της Flash Μνήμης
+
+Το ESP32 NVS χρησιμοποιεί Flash memory με περιορισμένο αριθμό write cycles (~100,000). Η νέα υλοποίηση:
+
+*   **Μηδενικές εγγραφές για αμετάβλητες τιμές**: Το `saveConfig()` ελέγχει κάθε πεδίο πριν την εγγραφή
+*   **Bulk updates**: Όλες οι αλλαγές σε μία NVS transaction αντί για πολλαπλές
+*   **Cache invalidation**: Το `clearAll()` σηματοδοτεί ότι το cache δεν είναι πλέον έγκυρο
+
+### Απλοποίηση του main.cpp
+
+Η φόρτωση ρυθμίσεων στο `setup()` απλοποιήθηκε σημαντικά:
+
+**Πριν**:
+```cpp
+baseUrl = storage.getBaseUrl();
+if (baseUrl.length() == 0) {
+    baseUrl = BASE_URL;
+    storage.setBaseUrl(baseUrl);
+}
+
+readIntervalMs = storage.getReadIntervalMs();
+if (readIntervalMs == 0) {
+    readIntervalMs = SENSORS_READ_INTERVAL_MS;
+    storage.setReadIntervalMs(readIntervalMs);
+}
+
+mqttEnabled = storage.getMqttEnabled(MQTT_ENABLED);
+// ~20 lines total
+```
+
+**Μετά**:
+```cpp
+DeviceConfig defaults = {
+    .baseUrl = BASE_URL,
+    .readIntervalMs = SENSORS_READ_INTERVAL_MS,
+    .mqttEnabled = MQTT_ENABLED
+};
+storage.loadDefaults(defaults);
+
+baseUrl = storage.getBaseUrl();
+readIntervalMs = storage.getReadIntervalMs();
+mqttEnabled = storage.getMqttEnabled();
+// ~6 lines total
+```
+
+### Επίλυση του ESP32 NVS Key Length Bug
+
+Κατά τη διάρκεια της υλοποίησης, ανακαλύφθηκε ότι το ESP32 NVS έχει όριο **15 χαρακτήρων** για τα ονόματα των keys. Το αρχικό key `"read_interval_ms"` (16 χαρακτήρες) προκαλούσε σφάλμα `KEY_TOO_LONG` και αποτυχία αποθήκευσης.
+
+**Λύση**: Το key μετονομάστηκε σε `"interval_ms"` (11 χαρακτήρες), λύνοντας το πρόβλημα και επιτρέποντας επιτυχή αποθήκευση της τιμής.
+
+### Πλεονεκτήματα του Config Struct Pattern
+
+1.  **Απόδοση**: 66% λιγότερες NVS προσβάσεις μετά την αρχική φόρτωση
+2.  **Προστασία Flash**: Μηδενικές περιττές εγγραφές, παρατεταμένη διάρκεια ζωής συσκευής
+3.  **Συντηρησιμότητα**: Όλες οι παράμετροι σε ένα struct, εύκολη επέκταση
+4.  **Consistency**: Atomic updates μέσω `saveConfig()`, αποφυγή μερικώς ενημερωμένης κατάστασης
+5.  **Απλότητα**: Καθαρότερος κώδικας στο `main.cpp`, centralized defaults
+6.  **Type Safety**: Το struct παρέχει type checking σε compile time
 
 ## Διαδικασία Provisioning & Authentication
 
