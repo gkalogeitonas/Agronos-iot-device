@@ -202,19 +202,21 @@ void WifiPortal::onSave() {
     // Save WiFi credentials
     storage.setWifiCreds(ssidArg, passArg);
     
-    // Save device configuration if provided
-    if (baseUrlArg.length() > 0) {
-      storage.setBaseUrl(baseUrlArg);
-    }
+    // Build device configuration struct with new values
+    DeviceConfig newConfig;
+    newConfig.baseUrl = (baseUrlArg.length() > 0) ? baseUrlArg : storage.getBaseUrl();
     
     if (readIntervalArg.length() > 0) {
       unsigned long intervalMinutes = readIntervalArg.toInt();
-      unsigned long intervalMs = intervalMinutes * 60 * 1000;
-      storage.setReadIntervalMs(intervalMs);
+      newConfig.readIntervalMs = intervalMinutes * 60 * 1000;
+    } else {
+      newConfig.readIntervalMs = storage.getReadIntervalMs();
     }
     
-    // Save MQTT enabled flag (checkbox returns "on" when checked, absent when unchecked)
-    storage.setMqttEnabled(mqttEnabledArg);
+    newConfig.mqttEnabled = mqttEnabledArg;
+    
+    // Save all config in one atomic operation
+    storage.saveConfig(newConfig);
     
     webServer.send(200, "text/html", "<h3>Saved. Rebooting...</h3>");
     delay(5000);
