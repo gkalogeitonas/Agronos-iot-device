@@ -71,49 +71,88 @@ bool Storage::hasMqttCredentials() {
   return getMqttCredentials(creds);
 }
 
-String Storage::getBaseUrl() {
-  prefs.begin("config", false);
-  String url = prefs.getString("base_url", "");
-  prefs.end();
-  return url;
+// ==================== Device Configuration (Config Struct Pattern) ====================
+
+Storage* Storage::loadDefaults(const DeviceConfig& defaults) {
+  _defaults = defaults;
+  return this;
 }
 
-void Storage::setBaseUrl(const String &url) {
-  prefs.begin("config", false);
-  String old = prefs.getString("base_url", "");
-  if (url != old) prefs.putString("base_url", url);
-  prefs.end();
-}
-
-bool Storage::getMqttEnabled(bool defaultValue) {
-  prefs.begin("config", false);
-  bool enabled = defaultValue; // use provided default
+void Storage::ensureConfigLoaded() {
+  if (_configLoaded) return;
+  
+  prefs.begin("config", true); // read-only mode
+  
+  // Load all config values with defaults as fallback
+  _cache.baseUrl = prefs.getString("base_url", _defaults.baseUrl);
+  _cache.readIntervalMs = prefs.getULong("interval_ms", _defaults.readIntervalMs);
+  
+  // Handle mqttEnabled with isKey check for proper default
   if (prefs.isKey("mqtt_enabled")) {
-    enabled = prefs.getBool("mqtt_enabled", defaultValue);
+    _cache.mqttEnabled = prefs.getBool("mqtt_enabled", _defaults.mqttEnabled);
+  } else {
+    _cache.mqttEnabled = _defaults.mqttEnabled;
   }
+  
   prefs.end();
-  return enabled;
+  _configLoaded = true;
 }
 
-void Storage::setMqttEnabled(bool enabled) {
-  prefs.begin("config", false);
-  bool old = prefs.getBool("mqtt_enabled", true);
-  if (enabled != old) prefs.putBool("mqtt_enabled", enabled);
-  prefs.end();
+String Storage::getBaseUrl() {
+  ensureConfigLoaded();
+  return _cache.baseUrl;
 }
 
 unsigned long Storage::getReadIntervalMs() {
+  ensureConfigLoaded();
+  return _cache.readIntervalMs;
+}
+
+bool Storage::getMqttEnabled() {
+  ensureConfigLoaded();
+  return _cache.mqttEnabled;
+}
+
+void Storage::saveConfig(const DeviceConfig& cfg) {
+  ensureConfigLoaded(); // Ensure cache is populated
+  
   prefs.begin("config", false);
-  unsigned long interval = prefs.getULong("interval_ms", 0);
+  
+  // Only write changed fields to prevent Flash wear
+  if (cfg.baseUrl != _cache.baseUrl) {
+    prefs.putString("base_url", cfg.baseUrl);
+  }
+  
+  if (cfg.readIntervalMs != _cache.readIntervalMs) {
+    prefs.putULong("interval_ms", cfg.readIntervalMs);
+  }
+  
+  if (cfg.mqttEnabled != _cache.mqttEnabled) {
+    prefs.putBool("mqtt_enabled", cfg.mqttEnabled);
+  }
+  
   prefs.end();
-  return interval;
+  
+  // Update cache to match new values
+  _cache = cfg;
+}
+
+void Storage::setBaseUrl(const String &url) {
+  DeviceConfig cfg = _cache;
+  cfg.baseUrl = url;
+  saveConfig(cfg);
 }
 
 void Storage::setReadIntervalMs(unsigned long ms) {
-  prefs.begin("config", false);
-  unsigned long old = prefs.getULong("interval_ms", 0);
-  if (ms != old) prefs.putULong("interval_ms", ms);
-  prefs.end();
+  DeviceConfig cfg = _cache;
+  cfg.readIntervalMs = ms;
+  saveConfig(cfg);
+}
+
+void Storage::setMqttEnabled(bool enabled) {
+  DeviceConfig cfg = _cache;
+  cfg.mqttEnabled = enabled;
+  saveConfig(cfg);
 }
 
 void Storage::clearAll() {
@@ -129,4 +168,7 @@ void Storage::clearAll() {
   prefs.begin("config", false);
   prefs.clear();
   prefs.end();
+  
+  // Invalidate cache since NVS was cleared
+  _configLoaded = false;
 }

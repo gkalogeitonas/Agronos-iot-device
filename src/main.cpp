@@ -98,21 +98,18 @@ void setup()
     // Check for long press to reset storage
     checkButtonReset();
 
-    // Load device configuration from storage (use config.h defaults if not set)
+    // Initialize storage defaults from config.h
+    DeviceConfig defaults = {
+        .baseUrl = BASE_URL,
+        .readIntervalMs = SENSORS_READ_INTERVAL_MS,
+        .mqttEnabled = MQTT_ENABLED
+    };
+    storage.loadDefaults(defaults);
+
+    // Load device configuration from storage (uses defaults if not set)
     baseUrl = storage.getBaseUrl();
-    if (baseUrl.length() == 0) {
-        baseUrl = BASE_URL;
-        storage.setBaseUrl(baseUrl);
-    }
-    
     readIntervalMs = storage.getReadIntervalMs();
-    if (readIntervalMs == 0) {
-        readIntervalMs = SENSORS_READ_INTERVAL_MS;
-        storage.setReadIntervalMs(readIntervalMs);
-    }
-    
-    mqttEnabled = storage.getMqttEnabled(MQTT_ENABLED);
-    // MQTT defaults are saved implicitly by getMqttEnabled()
+    mqttEnabled = storage.getMqttEnabled();
     
     Serial.println("Device Configuration:");
     Serial.print("  Base URL: "); Serial.println(baseUrl);

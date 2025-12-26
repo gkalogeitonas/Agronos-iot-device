@@ -9,6 +9,12 @@ struct MqttCredentials {
     bool isValid;
 };
 
+struct DeviceConfig {
+    String baseUrl;
+    unsigned long readIntervalMs;
+    bool mqttEnabled;
+};
+
 class Storage {
 public:
   Storage();
@@ -28,17 +34,33 @@ public:
   void clearMqttCredentials();
   bool hasMqttCredentials();
 
-  // Device configuration
+  // Device configuration - Dependency Injection
+  Storage* loadDefaults(const DeviceConfig& defaults);
+
+  // Device configuration - Transparent Getters
   String getBaseUrl();
-  void setBaseUrl(const String &url);
-  bool getMqttEnabled(bool defaultValue = true);
-  void setMqttEnabled(bool enabled);
   unsigned long getReadIntervalMs();
+  bool getMqttEnabled();
+
+  // Device configuration - Individual Setters
+  void setBaseUrl(const String &url);
   void setReadIntervalMs(unsigned long ms);
+  void setMqttEnabled(bool enabled);
+
+  // Device configuration - Atomic Setter
+  void saveConfig(const DeviceConfig& cfg);
 
   // Clear stored credentials and token
   void clearAll();
 
 private:
   Preferences prefs;
+  
+  // Config cache and defaults
+  DeviceConfig _cache;
+  DeviceConfig _defaults;
+  bool _configLoaded = false;
+  
+  // Lazy-loading helper
+  void ensureConfigLoaded();
 };
