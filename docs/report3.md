@@ -1,5 +1,7 @@
 # Αναφορά 3
 
+**Repository:** https://github.com/gkalogeitonas/Agronos-iot-device
+
 **Φοιτητής:** Καλογείτονας Γεωργιος
 
 **Επιβλέπων Καθηγητής:** Νικόλαος Σκλάβος
@@ -58,7 +60,7 @@
 
 ## Νέος Αισθητήρας: Υγρασία Εδάφους (SoilMoistureSensor)
 
-Στο τελευταίο στάδιο της υλοποίησης προστέθηκε υποστήριξη για **αισθητήρα υγρασίας εδάφους** (capacitive soil moisture sensor, DFRobot SEN0193). Η υλοποίηση βρίσκεται στο `src/soil_moisture.cpp` και ενσωματώνεται στον υπάρχοντα μηχανισμό αισθητήρων χωρίς αλλαγές στο factory.
+Στο τελευταίο στάδιο της υλοποίησης προστέθηκε υποστήριξη για **αισθητήρα υγρασίας εδάφους** (capacitive soil moisture sensor, DFRobot SEN0193). Η υλοποίηση βρίσκεται στο `src/soil_moisture.cpp` και ενσωματώνεται στον υπάρχοντα μηχανισμό αισθητήρων χωρίς αλλαγές στο factory. **Πηγή:** https://github.com/gkalogeitonas/Agronos-iot-device/blob/main/src/soil_moisture.cpp
 
 Βασικά τεχνικά σημεία:
 
@@ -170,6 +172,8 @@ WifiPortal(Storage &storage, const char* apSsid, const char* apPass,
            const char* baseUrl, bool mqttEnabled, unsigned long readIntervalMs);
 ```
 
+**Πηγή:** [src/wifi_portal.cpp](https://github.com/gkalogeitonas/Agronos-iot-device/blob/main/src/wifi_portal.cpp)
+
 Η μέθοδος `generateHtmlPage()` δημιουργεί δυναμικά την HTML φόρμα, ενσωματώνοντας:
 *   Dropdown με τα σαρωμένα WiFi δίκτυα
 *   Text input για το Server URL με pre-filled τιμή
@@ -203,9 +207,9 @@ WifiPortal(Storage &storage, const char* apSsid, const char* apPass,
 
 *(Εικόνα του Captive Portal UI θα προστεθεί)*
 
-## Σχεδιασμός του Storage Layer: Config Struct Pattern
+## Αποθήκευση και Πρόσβαση Ρυθμίσεων από το Captive Portal
 
-Με την εισαγωγή του Runtime Configuration, οι παράμετροι λειτουργίας (URL, intervals, MQTT) έπρεπε να μεταφερθούν από το `config.h` (compile-time constants) στη μνήμη NVS. Για τη βέλτιστη διαχείριση αυτών των δεδομένων, σχεδιάστηκε και υλοποιήθηκε το **Config Struct Pattern** με **Lazy-Loading Cache**.
+Με την εισαγωγή του Runtime Configuration, οι παράμετροι λειτουργίας (URL, intervals, MQTT) διαβάζονται πλέον από τη μνήμη NVS όταν ο χρήστης τις έχει καταχωρήσει εκεί, με fallback στις προεπιλεγμένες τιμές του `config.h` (compile-time defaults) όταν δεν υπάρχουν αποθηκευμένες τιμές. Για τη βέλτιστη διαχείριση αυτών των δεδομένων, σχεδιάστηκε και υλοποιήθηκε το **Config Struct Pattern** με **Lazy-Loading Cache**. **Πηγή:** [src/storage.cpp](https://github.com/gkalogeitonas/Agronos-iot-device/blob/main/src/storage.cpp)
 
 ### Σκεπτικό Σχεδίασης
 
@@ -277,7 +281,7 @@ void Storage::ensureConfigLoaded() {
 *   **Automatic Fallback**: Χρήση `_defaults` όταν το NVS δεν έχει αποθηκευμένη τιμή
 
 #### 5. Transparent Getters
-Οι getter μέθοδοι απλοποιούνται δραστικά:
+Οι getter μέθοδοι χρησιμοποιούν την cache στη μνήμη RAM και εξασφαλίζουν ότι δεν γίνονται περιττές προσβάσεις στο NVS. Στην πρώτη κλήση κάθε getter εκτελείται η `ensureConfigLoaded()` η οποία φορτώνει ολόκληρο το configuration από το NVS (εφόσον υπάρχουν αποθηκευμένες τιμές) και, όταν χρειαστεί, χρησιμοποιεί τις προεπιλεγμένες τιμές από το `config.h`. Μετά την αρχική φόρτωση, οι getters επιστρέφουν απευθείας τις τιμές από το `_cache` στη RAM χωρίς επιπλέον I/O προς τη Flash, μειώνοντας τόσο το latency όσο και τη φθορά της μνήμης.
 
 ```cpp
 String Storage::getBaseUrl() {
