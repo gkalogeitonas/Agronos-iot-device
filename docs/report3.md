@@ -205,7 +205,9 @@ WifiPortal(Storage &storage, const char* apSsid, const char* apPass,
 *   **Auto-Stop**: Το portal σταματά αυτόματα όταν επιτευχθεί σύνδεση WiFi
 *   **Responsive Design**: HTML φόρμα με CSS styling για καλή εμφάνιση σε mobile και desktop συσκευές
 
-*(Εικόνα του Captive Portal UI θα προστεθεί)*
+![Captive Portal UI](docs/images/photo_2025-12-27_11-19-46.jpg)
+
+*Εικ. 1 — Captive Portal UI (screenshot της φόρμας ρύθμισης).*
 
 ## Αποθήκευση και Πρόσβαση Ρυθμίσεων από το Captive Portal
 
