@@ -340,14 +340,7 @@ void Storage::saveConfig(const DeviceConfig& cfg) {
 *   **Single Transaction**: Όλες οι αλλαγές σε ένα άνοιγμα/κλείσιμο NVS
 
 
-### Πλεονεκτήματα του Config Struct Pattern
 
-1.  **Απόδοση**: λιγότερες NVS προσβάσεις μετά την αρχική φόρτωση
-2.  **Προστασία Flash**: Μηδενικές περιττές εγγραφές, παρατεταμένη διάρκεια ζωής συσκευής
-3.  **Συντηρησιμότητα**: Όλες οι παράμετροι σε ένα struct, εύκολη επέκταση
-4.  **Consistency**: Atomic updates μέσω `saveConfig()`, αποφυγή μερικώς ενημερωμένης κατάστασης
-5.  **Απλότητα**: Καθαρότερος κώδικας στο `main.cpp`, centralized defaults
-6.  **Type Safety**: Το struct παρέχει type checking σε compile time
 
 ## Διαδικασία Provisioning & Authentication
 
