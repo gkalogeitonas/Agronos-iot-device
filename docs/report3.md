@@ -136,7 +136,7 @@ static bool _reg = registerSensorFactory("SoilMoistureSensor", create_sensor_imp
 Παράδειγμα ενεργοποίησης στο configuration:
 
 ```c++
-{ "SoilMoistureSensor", 32, "Soil-Moisture-1" }
+{ "SoilMoistureSensor", 32, "Soil-Moisture-1", "Soil Moisture" }
 ```
 
 ## Βελτιωμένο Captive Portal με Runtime Configuration
