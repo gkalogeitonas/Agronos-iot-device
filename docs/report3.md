@@ -399,6 +399,12 @@ void Storage::saveConfig(const DeviceConfig& cfg) {
 
 *Εικ. — Σχηματικό σύνδεσης κυκλώματος (ESP32, DHT11, Soil Moisture, button).* 
 
+Παρακάτω εμφανίζεται μια φωτογραφία του πραγματικού breadboard με τις συνδέσεις που χρησιμοποιήθηκαν στις δοκιμές.
+
+![Real circuit photo](images/real_circuit.jpg)
+
+*Εικ. — Πραγματικό κύκλωμα στο breadboard (ESP32, DHT11, capacitive soil moisture sensor, button).* 
+
 ### Λειτουργίες
 
 1.  **Factory Reset (Επαναφορά Εργοστασιακών Ρυθμίσεων)**:
