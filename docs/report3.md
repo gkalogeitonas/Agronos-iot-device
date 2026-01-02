@@ -208,9 +208,7 @@ WifiPortal(Storage &storage, const char* apSsid, const char* apPass,
 ![Captive Portal UI](images/photo_2025-12-27_11-19-46.jpg)
 
 *Εικ. 1 — Captive Portal UI (screenshot της φόρμας ρύθμισης).*
-![Captive Portal UI](images/photo_2025-12-27_11-19-46.jpg)
 
-*Εικ. 1 — Captive Portal UI (screenshot της φόρμας ρύθμισης).*
 
 ## Αποθήκευση και Πρόσβαση Ρυθμίσεων από το Captive Portal
 
@@ -399,6 +397,14 @@ void Storage::saveConfig(const DeviceConfig& cfg) {
 *   **Σύνδεση**: Ένα momentary push button συνδέεται μεταξύ του GPIO 14 και GND.
 *   **Pull-up Resistor**: Χρησιμοποιείται ο εσωτερικός pull-up αντιστάτης του ESP32 (`INPUT_PULLUP`).
 *   **Λογική**: Το κουμπί είναι ενεργό σε χαμηλή στάθμη (active-low) — όταν πατηθεί, το pin διαβάζεται ως `LOW`.
+
+### Ηλεκτρονικό Κύκλωμα (Circuit)
+
+Παρακάτω παρουσιάζεται το διάγραμμα σύνδεσης του κυκλώματος που χρησιμοποιήθηκε στη δοκιμή: ESP32, αισθητήρας DHT11, capacitive soil moisture sensor και το κουμπί επαναφοράς.
+
+![Circuit diagram](images/circuit.png)
+
+*Εικ. — Σχηματικό σύνδεσης κυκλώματος (ESP32, DHT11, Soil Moisture, button).* 
 
 ### Λειτουργίες
 
