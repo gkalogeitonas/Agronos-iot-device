@@ -20,9 +20,6 @@
 const char* apSsid = AP_SSID;
 const char* apPass = AP_PASS; // optional
 
-// Button pin definition
-constexpr int BUTTON_PIN = 14; // GPIO 14 for button
-
 // Replace global Preferences with Storage instance
 Storage storage;
 
@@ -276,8 +273,13 @@ void loop()
         WiFi.mode(WIFI_OFF);
         delay(50);
 
-        // Enable wakeup from button (GPIO 14, LOW = pressed)
-        esp_sleep_enable_ext0_wakeup(GPIO_NUM_14, 0);
+        // Enable wakeup from button (LOW = pressed)
+#if defined(CONFIG_IDF_TARGET_ESP32)
+        esp_sleep_enable_ext0_wakeup((gpio_num_t)BUTTON_PIN, 0);
+#else
+        // ESP32-C6 and others use ext1 for GPIO wakeup
+        esp_sleep_enable_ext1_wakeup(1ULL << BUTTON_PIN, ESP_EXT1_WAKEUP_ANY_LOW);
+#endif
         // Also enable timer wakeup
         esp_sleep_enable_timer_wakeup(sleep_us);
         esp_deep_sleep_start();
