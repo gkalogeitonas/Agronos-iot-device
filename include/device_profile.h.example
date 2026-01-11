@@ -1,0 +1,22 @@
+#pragma once
+
+#include "sensor.h" // SensorConfig is defined in the sensor API header
+
+// === Device Profile (example) ===
+// This file combines device credentials and sensor list for a single device.
+// Copy this file to `device_profile.h` and update values for each device.
+// The `device_profile.h` should be gitignored on per-device repositories.
+
+// Device credentials
+constexpr const char* DEFAULT_UUID   = "Test-Device-1";
+constexpr const char* DEFAULT_SECRET = "Test-Device-1";
+
+// Sensor configuration
+constexpr SensorConfig SENSOR_CONFIGS[] = {
+    { "DHT11TemperatureReader", 21, "Test-Device-1-Sensor-1", "Temperature" },
+    { "DHT11HumidityReader", 21, "Test-Device-1-Sensor-2", "Humidity" },
+    { "SoilMoistureSensor", 32, "Soil-Moisture-1", "Soil Moisture" },
+    { "DHT20TemperatureReader", -1, "DHT20-Temp-1", "DHT20 Temperature" },
+    { "DHT20HumidityReader", -1, "DHT20-Hum-1", "DHT20 Humidity" }
+};
+constexpr size_t SENSOR_CONFIG_COUNT = sizeof(SENSOR_CONFIGS) / sizeof(SENSOR_CONFIGS[0]);

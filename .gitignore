@@ -37,8 +37,7 @@ Thumbs.db
 *.tmp
 
 # Optional: local secret/config files (add your own filenames)
-include/secrets.h
-include/sensors_config.h
+include/device_profile.h
 *.local
 *.env
 docs/report3.pdf

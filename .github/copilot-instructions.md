@@ -64,22 +64,19 @@ ESP32 firmware that reads sensors and publishes data via MQTT (primary) or HTTP 
 ### Configuration File Structure
 The project uses a modular configuration system with separate files for different concerns:
 - **[config.h](../include/config.h)**: Hardware pins, MQTT settings, network URLs, calibration constants - **tracked in git**
-- **[secrets.h](../include/secrets.h)**: Device credentials (`DEFAULT_UUID`, `DEFAULT_SECRET`) - **gitignored**
-- **[sensors_config.h](../include/sensors_config.h)**: Sensor array configuration (`SENSOR_CONFIGS`) - **gitignored**
+- **[device_profile.h](../include/device_profile.h)**: Device credentials (`DEFAULT_UUID`, `DEFAULT_SECRET`) and `SENSOR_CONFIGS` for this specific device - **gitignored**
 
 **Initial Setup Workflow:**
-1. Copy `secrets.h.example` → `secrets.h` and update with your device credentials
-2. Copy `sensors_config.h.example` → `sensors_config.h` and configure your sensors
-3. Modify `config.h` directly if you need to adjust hardware pins, MQTT settings, or calibration constants
+1. Copy `device_profile.h.example` → `device_profile.h` and update with your device credentials and sensor list
+2. Modify `config.h` directly if you need to adjust hardware pins, MQTT settings, or calibration constants
 
 ### Single Source of Truth: config.h
 - **Hardware configuration** lives in [config.h](../include/config.h) (tracked in git)
-- **Device credentials** in [secrets.h](../include/secrets.h.example) (gitignored)
-- **Sensor list** in [sensors_config.h](../include/sensors_config.h.example): `SENSOR_CONFIGS[]` array maps sensor type to pin and UUID (gitignored)
-- To add/remove sensors: modify `SENSOR_CONFIGS` only - no factory changes needed
-- MQTT settings: `MQTT_ENABLED`, `AGRONOS_MQTT_*` constants
-- Button settings: `BUTTON_LONG_PRESS_MS` (duration for factory reset trigger)
-- Never hardcode URLs, pins, or credentials outside `config.h`
+- **Device-specific profile** lives in [device_profile.h](../include/device_profile.h.example) (gitignored)
+To add/remove sensors for a specific device: modify `SENSOR_CONFIGS` in `device_profile.h` — no factory changes needed
+MQTT settings: `MQTT_ENABLED`, `AGRONOS_MQTT_*` constants
+Button settings: `BUTTON_LONG_PRESS_MS` (duration for factory reset trigger)
+Never hardcode URLs or pins outside `config.h`
 
 ### Adding New Sensors (3-step process)
 1. Create class derived from `SensorBase` (constructor signature: `int pin, const char* uuid`)
