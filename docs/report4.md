@@ -39,6 +39,109 @@
 *   **Πρωτόκολλο I2C**: Σε αντίθεση με το ιδιότυπο πρωτόκολλο single-wire του DHT11 που απαιτεί ακριβή χρονισμό (timing sensitive), ο DHT20 χρησιμοποιεί το στάνταρ πρωτόκολλο I2C. Αυτό εξαλείφει τα errors ανάγνωσης λόγω καθυστερήσεων του λειτουργικού συστήματος (RTOS task switching).
 *   **Υλοποίηση (Guarded Read)**: Επειδή ο DHT20 απαιτεί τουλάχιστον 2 δευτερόλεπτα μεταξύ των μετρήσεων, υλοποιήθηκε ένας μηχανισμός "Guarded Read" (`readSharedDHT20`). Ανεξάρτητα από το πόσες φορές ή πόσο γρήγορα ζητηθεί μέτρηση από το κυρίως loop, η συνάρτηση εκτελεί I2C transaction μόνο αν έχει παρέλθει ο απαιτούμενος χρόνος, επιστρέφοντας cached τιμές ενδιάμεσα.
 
+```cpp
+#include "sensor.h"
+#include "config.h"
+#include "sensor_creator.h"
+#include <Arduino.h>
+#include <DHT20.h>
+#include <Wire.h>
+
+/**
+ * DHT20 Temperature and Humidity Sensor (I2C)
+ * - Uses robtillaart/DHT20 library
+ * - Default I2C address is 0x38
+ * - Multiple readers share the same DHT20 instance to avoid I2C conflicts
+ */
+
+static DHT20* getSharedDHT20() {
+    static DHT20* dht = nullptr;
+    if (!dht) {
+        // Initialize I2C with pins defined in config.h
+        Wire.begin(I2C_SDA, I2C_SCL); 
+        dht = new DHT20(&Wire);
+        if (!dht->begin()) {
+            Serial.println("DHT20: Failed to initialize sensor!");
+            return nullptr;
+        }
+        Serial.println("DHT20: Sensor initialized");
+    }
+    return dht;
+}
+
+// Guarded read wrapper: only performs I2C read if 2+ seconds have passed
+// Both temperature and humidity readers call this, but only the first triggers the actual read
+static bool readSharedDHT20() {
+    static unsigned long lastReadTime = 0;
+    DHT20* dht = getSharedDHT20();
+    if (!dht) return false;
+    
+    unsigned long now = millis();
+    const unsigned long READ_INTERVAL = 2000; // DHT20 requires 2 seconds between reads
+    
+    // Only perform an actual read if 2+ seconds have passed
+    if (now - lastReadTime >= READ_INTERVAL) {
+        int status = dht->read();
+        if (status != DHT20_OK) {
+            Serial.print("DHT20 Read Error: ");
+            Serial.println(status);
+            return false;
+        }
+        lastReadTime = now;
+    }
+    
+    return true;
+}
+
+class DHT20TemperatureReader : public SensorBase {
+public:
+    DHT20TemperatureReader(int pin, const char* uid)
+    : uuid_(uid), dht_(getSharedDHT20()) {}
+    
+    const char* uuid() const override { return uuid_; }
+    
+    bool read(float &out) override {
+        if (!dht_) return false;
+        
+        // Use guarded read (only performs I2C transaction once per 2 seconds)
+        if (!readSharedDHT20()) return false;
+        
+        out = dht_->getTemperature();
+        return true;
+    }
+    
+private:
+    const char* uuid_;
+    DHT20* dht_;
+};
+
+class DHT20HumidityReader : public SensorBase {
+public:
+    DHT20HumidityReader(int pin, const char* uid)
+    : uuid_(uid), dht_(getSharedDHT20()) {}
+    
+    const char* uuid() const override { return uuid_; }
+    
+    bool read(float &out) override {
+        if (!dht_) return false;
+        
+        // Use guarded read (only performs I2C transaction once per 2 seconds)
+        if (!readSharedDHT20()) return false;
+        
+        out = dht_->getHumidity();
+        return true;
+    }
+    
+private:
+    const char* uuid_;
+    DHT20* dht_;
+};
+
+// Register the factory creators
+static bool _reg_temp = registerSensorFactory("DHT20TemperatureReader", create_sensor_impl<DHT20TemperatureReader>);
+static bool _reg_hum = registerSensorFactory("DHT20HumidityReader", create_sensor_impl<DHT20HumidityReader>);
+```
+
 ## Τεχνικές Λεπτομέρειες Υλοποίησης
 
 Για να υποστηριχθούν και οι δύο πλακέτες (Standard ESP32 και ESP32-C6) από τον ίδιο κώδικα, έγιναν οι εξής αρχιτεκτονικές παρεμβάσεις:
@@ -49,13 +152,11 @@
     Στο `config.h`, χρησιμοποιήθηκαν preprocessor directives για τον ορισμό των Pins ανάλογα με τον στόχο (Target):
     ```cpp
     #if defined(CONFIG_IDF_TARGET_ESP32C6)
-        constexpr int BUTTON_PIN = 9;   // Native BOOT button on FireBeetle
-        constexpr int I2C_SDA = 19;     // FireBeetle I2C pins
-        constexpr int I2C_SCL = 20;
+    constexpr int I2C_SDA = 19;
+    constexpr int I2C_SCL = 20;
     #else
-        constexpr int BUTTON_PIN = 14;  // Custom wiring for standard ESP32
-        constexpr int I2C_SDA = 21;     // Standard ESP32 I2C pins
-        constexpr int I2C_SCL = 22;
+    constexpr int I2C_SDA = 21;
+    constexpr int I2C_SCL = 22;
     #endif
     ```
 
