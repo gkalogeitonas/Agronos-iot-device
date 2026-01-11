@@ -27,6 +27,30 @@ static DHT20* getSharedDHT20() {
     return dht;
 }
 
+// Guarded read wrapper: only performs I2C read if 2+ seconds have passed
+// Both temperature and humidity readers call this, but only the first triggers the actual read
+static bool readSharedDHT20() {
+    static unsigned long lastReadTime = 0;
+    DHT20* dht = getSharedDHT20();
+    if (!dht) return false;
+    
+    unsigned long now = millis();
+    const unsigned long READ_INTERVAL = 2000; // DHT20 requires 2 seconds between reads
+    
+    // Only perform an actual read if 2+ seconds have passed
+    if (now - lastReadTime >= READ_INTERVAL) {
+        int status = dht->read();
+        if (status != DHT20_OK) {
+            Serial.print("DHT20 Read Error: ");
+            Serial.println(status);
+            return false;
+        }
+        lastReadTime = now;
+    }
+    
+    return true;
+}
+
 class DHT20TemperatureReader : public SensorBase {
 public:
     DHT20TemperatureReader(int pin, const char* uid)
@@ -37,13 +61,8 @@ public:
     bool read(float &out) override {
         if (!dht_) return false;
         
-        // The DHT20 library read() returns DHT20_OK (0) on success
-        int status = dht_->read();
-        if (status != DHT20_OK) {
-            Serial.print("DHT20 Temp Read Error: ");
-            Serial.println(status);
-            return false;
-        }
+        // Use guarded read (only performs I2C transaction once per 2 seconds)
+        if (!readSharedDHT20()) return false;
         
         out = dht_->getTemperature();
         return true;
@@ -64,12 +83,8 @@ public:
     bool read(float &out) override {
         if (!dht_) return false;
         
-        int status = dht_->read();
-        if (status != DHT20_OK) {
-            Serial.print("DHT20 Hum Read Error: ");
-            Serial.println(status);
-            return false;
-        }
+        // Use guarded read (only performs I2C transaction once per 2 seconds)
+        if (!readSharedDHT20()) return false;
         
         out = dht_->getHumidity();
         return true;
