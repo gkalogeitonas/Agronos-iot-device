@@ -15,10 +15,8 @@
 static DHT20* getSharedDHT20() {
     static DHT20* dht = nullptr;
     if (!dht) {
-        // Note: Wire.begin() might have been called elsewhere, but it's safe to call again
-        // on ESP32 if we want to ensure it's up. 
-        // For now we assume default I2C pins.
-        Wire.begin(); 
+        // Initialize I2C with pins defined in config.h
+        Wire.begin(I2C_SDA, I2C_SCL); 
         dht = new DHT20(&Wire);
         if (!dht->begin()) {
             Serial.println("DHT20: Failed to initialize sensor!");

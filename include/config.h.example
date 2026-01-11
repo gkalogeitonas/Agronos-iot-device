@@ -16,6 +16,14 @@ constexpr unsigned long BUTTON_LONG_PRESS_MS = 10000; // 10 seconds to trigger r
 
 constexpr int BUTTON_PIN = 14;
 
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+constexpr int I2C_SDA = 19;
+constexpr int I2C_SCL = 20;
+#else
+constexpr int I2C_SDA = 21;
+constexpr int I2C_SCL = 22;
+#endif
+
 // DHT sensor
 constexpr int DHT11_PIN = 21;
 
