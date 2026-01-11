@@ -1,7 +1,7 @@
 #pragma once
 
 #include "sensor.h" // SensorConfig is defined in the sensor API header
-#include "device_profile.h" // Device-specific credentials + sensor list
+#include "Test-Device-2.h" // Device-specific credentials + sensor list
 
 // Network / server
 constexpr const char* BASE_URL       = "https://agronos.kalogeitonas.xyz";
