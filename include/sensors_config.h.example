@@ -1,0 +1,21 @@
+#pragma once
+
+#include "sensor.h" // SensorConfig is defined in the sensor API header
+
+// ==================== SENSOR CONFIGURATION ====================
+// Define sensors here only. To add/remove sensors modify this array.
+// Use distinct types for temperature vs humidity for DHT11 as requested.
+// For DHT20 (I2C), the pin parameter is ignored but should be provided (e.g., -1).
+// 
+// Copy this file to sensors_config.h and configure your actual sensors.
+// The sensors_config.h file is gitignored and should never be committed to version control.
+// ============================================================
+
+constexpr SensorConfig SENSOR_CONFIGS[] = {
+    { "DHT11TemperatureReader", 21, "Test-Device-1-Sensor-1", "Temperature" },
+    { "DHT11HumidityReader", 21, "Test-Device-1-Sensor-2", "Humidity" },
+    { "SoilMoistureSensor", 32, "Soil-Moisture-1", "Soil Moisture" },
+    { "DHT20TemperatureReader", -1, "DHT20-Temp-1", "DHT20 Temperature" },
+    { "DHT20HumidityReader", -1, "DHT20-Hum-1", "DHT20 Humidity" }
+};
+constexpr size_t SENSOR_CONFIG_COUNT = sizeof(SENSOR_CONFIGS) / sizeof(SENSOR_CONFIGS[0]);

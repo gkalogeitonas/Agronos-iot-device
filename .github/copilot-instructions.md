@@ -61,9 +61,21 @@ ESP32 firmware that reads sensors and publishes data via MQTT (primary) or HTTP 
 
 ## Configuration Patterns
 
+### Configuration File Structure
+The project uses a modular configuration system with separate files for different concerns:
+- **[config.h](../include/config.h)**: Hardware pins, MQTT settings, network URLs, calibration constants - **tracked in git**
+- **[secrets.h](../include/secrets.h)**: Device credentials (`DEFAULT_UUID`, `DEFAULT_SECRET`) - **gitignored**
+- **[sensors_config.h](../include/sensors_config.h)**: Sensor array configuration (`SENSOR_CONFIGS`) - **gitignored**
+
+**Initial Setup Workflow:**
+1. Copy `secrets.h.example` → `secrets.h` and update with your device credentials
+2. Copy `sensors_config.h.example` → `sensors_config.h` and configure your sensors
+3. Modify `config.h` directly if you need to adjust hardware pins, MQTT settings, or calibration constants
+
 ### Single Source of Truth: config.h
-- **All** device configuration lives in [config.h](../include/config.h.example) (use `config.h.example` as template)
-- Sensor list: `SENSOR_CONFIGS[]` array maps sensor type to pin and UUID
+- **Hardware configuration** lives in [config.h](../include/config.h) (tracked in git)
+- **Device credentials** in [secrets.h](../include/secrets.h.example) (gitignored)
+- **Sensor list** in [sensors_config.h](../include/sensors_config.h.example): `SENSOR_CONFIGS[]` array maps sensor type to pin and UUID (gitignored)
 - To add/remove sensors: modify `SENSOR_CONFIGS` only - no factory changes needed
 - MQTT settings: `MQTT_ENABLED`, `AGRONOS_MQTT_*` constants
 - Button settings: `BUTTON_LONG_PRESS_MS` (duration for factory reset trigger)

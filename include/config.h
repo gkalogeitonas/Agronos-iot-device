@@ -1,11 +1,11 @@
 #pragma once
 
 #include "sensor.h" // SensorConfig is defined in the sensor API header
+#include "secrets.h" // Device credentials (DEFAULT_UUID, DEFAULT_SECRET)
+#include "sensors_config.h" // Sensor configuration (SENSOR_CONFIGS, SENSOR_CONFIG_COUNT)
 
 // Network / server
 constexpr const char* BASE_URL       = "https://agronos.kalogeitonas.xyz";
-constexpr const char* DEFAULT_UUID   = "Test-Device-1";
-constexpr const char* DEFAULT_SECRET = "Test-Device-1";
 
 // Captive portal AP
 constexpr const char* AP_SSID = "ESP_Config";
@@ -28,7 +28,7 @@ constexpr int I2C_SCL = 22;
 constexpr int DHT11_PIN = 21;
 
 // non-blocking read interval
-constexpr unsigned long SENSORS_READ_INTERVAL_MS = 2 * 60 * 1000; // 2 minute
+constexpr unsigned long SENSORS_READ_INTERVAL_MS = 3 * 60 * 1000; // 3 minute
 
 // Auth manager
 constexpr unsigned long AUTH_RETRY_INTERVAL_MS = 30000;
@@ -58,19 +58,6 @@ constexpr int AGRONOS_MQTT_QOS_STATUS = 0;    // Fire and forget for status
 // NOTE: MQTT server, username, and password are fetched dynamically 
 // from the backend using the JWT token after HTTP authentication.
 // ============================================================
-
-
-// Define sensors here only. To add/remove sensors modify this array.
-// Use distinct types for temperature vs humidity for DHT11 as requested.
-// For DHT20 (I2C), the pin parameter is ignored but should be provided (e.g., -1).
-constexpr SensorConfig SENSOR_CONFIGS[] = {
-    { "DHT11TemperatureReader", 21, "Test-Device-1-Sensor-1", "Temperature" },
-    { "DHT11HumidityReader", 21, "Test-Device-1-Sensor-2", "Humidity" },
-    { "SoilMoistureSensor", 32, "Soil-Moisture-1", "Soil Moisture" },
-    { "DHT20TemperatureReader", -1, "DHT20-Temp-1", "DHT20 Temperature" },
-    { "DHT20HumidityReader", -1, "DHT20-Hum-1", "DHT20 Humidity" }
-};
-constexpr size_t SENSOR_CONFIG_COUNT = sizeof(SENSOR_CONFIGS) / sizeof(SENSOR_CONFIGS[0]);
 
 // Soil moisture sensor calibration (SEN0193)
 constexpr int SOIL_MOISTURE_AIR_VALUE = 2941;    // Dry
