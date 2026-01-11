@@ -32,6 +32,43 @@
 2.  **WiFi 6 (802.11ax)**: Υποστηρίζει το νεότερο πρότυπο WiFi, το οποίο περιλαμβάνει την τεχνολογία **Target Wake Time (TWT)**. Αυτό επιτρέπει στη συσκευή να "διαπραγματεύεται" με το Access Point πότε θα ξυπνήσει για να στείλει δεδομένα, μειώνοντας δραματικά την ενέργεια που καταναλώνεται για τη διατήρηση της σύνδεσης.
 
 
+### Τεχνικές Λεπτομέρειες Υλοποίησης
+
+Για να υποστηριχθούν και οι δύο πλακέτες (Standard ESP32 και ESP32-C6) από τον ίδιο κώδικα, έγιναν οι εξής αρχιτεκτονικές παρεμβάσεις:
+
+1.  **Multi-Environment PlatformIO**: Το αρχείο `platformio.ini` αναδιοργανώθηκε ώστε να περιέχει κοινές ρυθμίσεις (`[env]`) και ξεχωριστά sections για κάθε πλακέτα (`[env:esp32dev]` και `[env:esp32-c6-devkitc-1]`). Ο προγραμματιστής μπορεί να επιλέξει πού θα κάνει compile/upload.
+
+2.  **Conditional Compilation & Pin Mapping**:
+    Στο `config.h`, χρησιμοποιήθηκαν preprocessor directives για τον ορισμό των Pins ανάλογα με τον στόχο (Target):
+    ```cpp
+    #if defined(CONFIG_IDF_TARGET_ESP32C6)
+    constexpr int I2C_SDA = 19;
+    constexpr int I2C_SCL = 20;
+    #else
+    constexpr int I2C_SDA = 21;
+    constexpr int I2C_SCL = 22;
+    #endif
+    ```
+
+3.  **Διαχείριση Deep Sleep Wakeup**:
+    Ο μηχανισμός αφύπνισης διαφέρει μεταξύ των γενιών ESP32. Ο κλασικός ESP32 χρησιμοποιεί το `esp_sleep_enable_ext0_wakeup`, το οποίο όμως δεν υποστηρίζεται στον C6.
+    Ο κώδικας στο `main.cpp` προσαρμόστηκε ώστε να χρησιμοποιεί τη νεότερη μέθοδο `esp_sleep_enable_ext1_wakeup` όταν γίνεται compile για ESP32-C6, εξασφαλίζοντας ότι το κουμπί λειτουργεί ως πηγή αφύπνισης και στις δύο περιπτώσεις.
+
+4.  **Δυναμική Αρχικοποίηση I2C**:
+    Η κλάση του αισθητήρα DHT20 δεν χρησιμοποιεί τις default τιμές της βιβλιοθήκης `Wire`, αλλά καλεί ρητά την `Wire.begin(I2C_SDA, I2C_SCL)` με τις παραμέτρους που ορίστηκαν στο configuration, λύνοντας προβλήματα συνδεσιμότητας σε πλακέτες με μη τυπικό pinout (όπως η FireBeetle C6).
+
+    
+
+## Αναδιοργάνωση Ρυθμίσεων και Προφίλ Συσκευής
+
+Πρόσφατα οργανώθηκε η διαχείριση ρυθμίσεων και προφίλ συσκευής για ευκολότερη ανάπτυξη και ασφαλέστερο workflow:
+
+- **Συγκέντρωση προφίλ συσκευής**: Τα `DEFAULT_UUID`, `DEFAULT_SECRET` και ο πίνακας `SENSOR_CONFIGS` συγχωνεύτηκαν σε ένα αρχείο `device_profile.h` (και το αντίστοιχο `device_profile.h.example`). Αυτό το αρχείο είναι ειδικό για κάθε συσκευή και **αγνοείται από το git**.
+- **Απλοποίηση `config.h`**: Το `config.h` τώρα περιέχει μόνο κοινές, μη ευαίσθητες ρυθμίσεις (pins, MQTT, calibration) και κάνει `#include "device_profile.h"` για την πρόσβαση στο προφίλ της συσκευής.
+- **Καθαρισμός αρχείων**: Αφαιρέθηκαν τα παλιά `secrets.h` και `sensors_config.h` και το `.gitignore` ενημερώθηκε ανάλογα.
+- **Έλεγχος build**: Το project χτίστηκε επιτυχώς μετά τις αλλαγές για το περιβάλλον `esp32-c6-devkitc-1`.
+
+
 ## Νέος Αισθητήρας: DHT20 (I2C)
 
 Προστέθηκε υποστήριξη για τον αισθητήρα **DHT20**, ο οποίος αποτελεί την αναβαθμισμένη, βιομηχανική έκδοση του δημοφιλούς DHT11.
@@ -142,27 +179,3 @@ static bool _reg_temp = registerSensorFactory("DHT20TemperatureReader", create_s
 static bool _reg_hum = registerSensorFactory("DHT20HumidityReader", create_sensor_impl<DHT20HumidityReader>);
 ```
 
-## Τεχνικές Λεπτομέρειες Υλοποίησης
-
-Για να υποστηριχθούν και οι δύο πλακέτες (Standard ESP32 και ESP32-C6) από τον ίδιο κώδικα, έγιναν οι εξής αρχιτεκτονικές παρεμβάσεις:
-
-1.  **Multi-Environment PlatformIO**: Το αρχείο `platformio.ini` αναδιοργανώθηκε ώστε να περιέχει κοινές ρυθμίσεις (`[env]`) και ξεχωριστά sections για κάθε πλακέτα (`[env:esp32dev]` και `[env:esp32-c6-devkitc-1]`). Ο προγραμματιστής μπορεί να επιλέξει πού θα κάνει compile/upload.
-
-2.  **Conditional Compilation & Pin Mapping**:
-    Στο `config.h`, χρησιμοποιήθηκαν preprocessor directives για τον ορισμό των Pins ανάλογα με τον στόχο (Target):
-    ```cpp
-    #if defined(CONFIG_IDF_TARGET_ESP32C6)
-    constexpr int I2C_SDA = 19;
-    constexpr int I2C_SCL = 20;
-    #else
-    constexpr int I2C_SDA = 21;
-    constexpr int I2C_SCL = 22;
-    #endif
-    ```
-
-3.  **Διαχείριση Deep Sleep Wakeup**:
-    Ο μηχανισμός αφύπνισης διαφέρει μεταξύ των γενιών ESP32. Ο κλασικός ESP32 χρησιμοποιεί το `esp_sleep_enable_ext0_wakeup`, το οποίο όμως δεν υποστηρίζεται στον C6.
-    Ο κώδικας στο `main.cpp` προσαρμόστηκε ώστε να χρησιμοποιεί τη νεότερη μέθοδο `esp_sleep_enable_ext1_wakeup` όταν γίνεται compile για ESP32-C6, εξασφαλίζοντας ότι το κουμπί λειτουργεί ως πηγή αφύπνισης και στις δύο περιπτώσεις.
-
-4.  **Δυναμική Αρχικοποίηση I2C**:
-    Η κλάση του αισθητήρα DHT20 δεν χρησιμοποιεί τις default τιμές της βιβλιοθήκης `Wire`, αλλά καλεί ρητά την `Wire.begin(I2C_SDA, I2C_SCL)` με τις παραμέτρους που ορίστηκαν στο configuration, λύνοντας προβλήματα συνδεσιμότητας σε πλακέτες με μη τυπικό pinout (όπως η FireBeetle C6).
