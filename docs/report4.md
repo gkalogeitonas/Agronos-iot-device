@@ -178,3 +178,46 @@ static bool _reg_temp = registerSensorFactory("DHT20TemperatureReader", create_s
 static bool _reg_hum = registerSensorFactory("DHT20HumidityReader", create_sensor_impl<DHT20HumidityReader>);
 ```
 
+## Νέος Αισθητήρας: Παρακολούθηση Επιπέδου Μπαταρίας (Battery Level Sensor)
+
+Προστέθηκε αισθητήρας για την παρακολούθηση του επιπέδου μπαταρίας στο **DFRobot FireBeetle 2 ESP32-C6**, ο οποίος είναι κρίσιμος για την αυτόνομη λειτουργία σε αγροτικές εφαρμογές.
+
+### Τεχνικά Χαρακτηριστικά
+
+*   **Υλικό (Hardware)**:
+    - Η πλακέτα FireBeetle 2 διαθέτει ενσωματωμένο διαιρέτη τάσης (voltage divider) με αναλογία 2:1
+    - Η τάση της μπαταρίας μετράται μέσω του **ADC0 (GPIO 0)**
+    - 12-bit ADC resolution (0-4095) για ακριβείς μετρήσεις
+    - Συμβατό με **Polymer Lithium Ion Battery 3.7V 1200mAh**
+
+*   **Υλοποίηση**:
+    - Μέση τιμή 10 μετρήσεων για σταθερότητα και μείωση θορύβου
+    - Αυτόματη διόρθωση με βάση τον διαιρέτη τάσης (πραγματική τάση = 2x ADC reading)
+    - Χρήση **piecewise linear approximation** της καμπύλης εκφόρτισης LiPo (discharge curve)
+
+*   **Χαρτογράφηση Τάσης σε Ποσοστό**:
+    Η μετατροπή της τάσης σε ποσοστό μπαταρίας ακολουθεί τη ρεαλιστική καμπύλη εκφόρτισης μιας μπαταρίας Li-Ion:
+    - **4.2V = 100%** (πλήρως φορτισμένη)
+    - **4.0V = 90%** (γρήγορη πτώση στην κορυφή)
+    - **3.7V = 50%** (ονομαστική τάση)
+    - **3.4V = 20%** (μέτρια πτώση)
+    - **3.0V = 0%** (cutoff voltage - ελάχιστη ασφαλής τάση)
+
+*   **Πλεονεκτήματα**:
+    - Ακριβέστερη εκτίμηση από απλή γραμμική χαρτογράφηση
+    - Επιτρέπει στο backend να προβλέπει πότε θα χρειαστεί φόρτιση ή συντήρηση
+    - Συνεργάζεται με το MQTT/HTTP routing για αποστολή δεδομένων
+    - Αυτόματη καταχώρηση στο sensor factory pattern
+
+### Παράδειγμα Χρήσης
+
+```cpp
+// Στο device_profile.h:
+constexpr SensorConfig SENSOR_CONFIGS[] = {
+    { "DHT20TemperatureReader", -1, "DHT20-Temp-1", "DHT20 Temperature" },
+    { "DHT20HumidityReader", -1, "DHT20-Hum-1", "DHT20 Humidity" },
+    { "BatteryLevelSensor", 0, "Battery-Level-1", "Battery Level" }
+};
+```
+
+Ο αισθητήρας επιστρέφει το ποσοστό μπαταρίας (0-100%) και ενσωματώνεται απρόσκοπτα με την υπόλοιπη αρχιτεκτονική του firmware.
