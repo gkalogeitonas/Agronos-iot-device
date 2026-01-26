@@ -32,29 +32,25 @@ public:
     const char* uuid() const override { return uuid_; }
     
     bool read(float &out) override {
-        // Average multiple readings for stability
-        const int numSamples = 10;
-        long sum = 0;
-        
-        for (int i = 0; i < numSamples; i++) {
-            sum += analogRead(adc_pin_);
-            delay(10);
-        }
-        
-        int rawValue = sum / numSamples;
-        
-        // Convert ADC value to millivolts (ESP32-C6 ADC reference is typically 3.3V)
-        // ADC range: 0-4095 maps to 0-3300mV
-        float adcMillivolts = (rawValue * 3300.0f) / 4095.0f;
-        
-        // Apply voltage divider correction (board has 2:1 divider)
-        // Actual battery voltage is 2x the ADC reading
-        float batteryMillivolts = adcMillivolts * 2.0f;
-        
-        // Convert to percentage based on LiPo discharge curve
-        // 4200mV = 100%, 3000mV = 0%
-        float batteryPercent = voltageToBatteryPercent(batteryMillivolts);
-        
+        analogReadResolution(12);
+        int analogValue = analogRead(0);
+        int analogVolts = analogReadMilliVolts(0);
+
+        // print out the values you read:
+        Serial.print("ADC analog value = ");
+        Serial.println(analogValue);
+        Serial.print("ADC millivolts value = ");
+        Serial.print(analogVolts);
+        Serial.println("mV");
+        // Please adjust the calculation coefficient according to the actual measurement.
+        Serial.print("BAT millivolts value = ");
+        Serial.print(analogVolts * 2);
+        Serial.println("mV");
+        Serial.println("--------------");
+
+        float batteryPercent = voltageToBatteryPercent(analogVolts * 2);
+
+
         out = batteryPercent;
         return true;
     }
