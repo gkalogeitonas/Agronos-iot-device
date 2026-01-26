@@ -23,9 +23,7 @@
 class BatteryLevelSensor : public SensorBase {
 public:
     BatteryLevelSensor(int pin, const char* uid)
-    : adc_pin_(0), uuid_(uid) {
-        // Battery voltage is always on ADC0 for FireBeetle 2 ESP32-C6
-        // Pin parameter is ignored but kept for API compatibility
+    : adc_pin_(pin), uuid_(uid) {
         analogReadResolution(12); // Set 12-bit resolution (0-4096)
     }
     
@@ -33,24 +31,31 @@ public:
     
     bool read(float &out) override {
         analogReadResolution(12);
-        int analogValue = analogRead(0);
-        int analogVolts = analogReadMilliVolts(0);
 
-        // print out the values you read:
-        Serial.print("ADC analog value = ");
-        Serial.println(analogValue);
-        Serial.print("ADC millivolts value = ");
-        Serial.print(analogVolts);
-        Serial.println("mV");
-        // Please adjust the calculation coefficient according to the actual measurement.
+        constexpr int NUM_SAMPLES = 10;
+        long sumMv = 0;
+        int lastRaw = 0;
+        for (int i = 0; i < NUM_SAMPLES; ++i) {
+            lastRaw = analogRead(adc_pin_);
+            int mv = analogReadMilliVolts(adc_pin_);
+            sumMv += mv;
+            delay(10);
+        }
+
+        int avgMv = (int)(sumMv / NUM_SAMPLES);
+
+        // print out averaged values:
+        Serial.print("ADC analog value (last) = ");
+        Serial.println(lastRaw);
+        Serial.print("ADC average millivolts = ");
+        Serial.print(avgMv);
+        Serial.println(" mV");
         Serial.print("BAT millivolts value = ");
-        Serial.print(analogVolts * 2);
-        Serial.println("mV");
+        Serial.print(avgMv * 2);
+        Serial.println(" mV");
         Serial.println("--------------");
 
-        float batteryPercent = voltageToBatteryPercent(analogVolts * 2);
-
-
+        float batteryPercent = voltageToBatteryPercent(avgMv * 2);
         out = batteryPercent;
         return true;
     }
