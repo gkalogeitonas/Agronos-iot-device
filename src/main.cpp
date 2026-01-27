@@ -276,8 +276,12 @@ void loop()
         // Enable wakeup from button (LOW = pressed)
         #if defined(CONFIG_IDF_TARGET_ESP32)
         esp_sleep_enable_ext0_wakeup((gpio_num_t)BUTTON_PIN, 0);
+        #elif defined(CONFIG_IDF_TARGET_ESP32C6)
+        // On ESP32-C6, EXT1 wakeup only supports RTC GPIOs (0-7).
+        // For other pins (like GPIO 14), we use the GPIO deep sleep wakeup.
+        esp_deep_sleep_enable_gpio_wakeup(1ULL << BUTTON_PIN, ESP_GPIO_WAKEUP_GPIO_LOW);
         #else
-        // ESP32-C6 and others use ext1 for GPIO wakeup
+        // Other variants (S2, S3, C3) typically use ext1 for GPIO wakeup
         esp_sleep_enable_ext1_wakeup(1ULL << BUTTON_PIN, ESP_EXT1_WAKEUP_ANY_LOW);
         #endif
         // Also enable timer wakeup

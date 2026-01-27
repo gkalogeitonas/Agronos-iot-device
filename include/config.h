@@ -13,7 +13,15 @@ constexpr const char* AP_PASS = ""; // optional
 // Button configuration
 constexpr unsigned long BUTTON_LONG_PRESS_MS = 10000; // 10 seconds to trigger reset
 
-constexpr int BUTTON_PIN = 14;
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+// On ESP32-C6, deep sleep wakeup is supported only on GPIO 0-7 (RTC/VDDPST1 pins).
+// GPIO 14 is not supported for deep sleep wakeup on C6.
+// We select GPIO 7 (D11 on FireBeetle 2 C6) as the button pin.
+constexpr int BUTTON_PIN = 7;
+#else
+// On standard ESP32, GPIO 14 is an RTC pin and supports wakeup.
+constexpr int BUTTON_PIN = 14; 
+#endif
 
 #if defined(CONFIG_IDF_TARGET_ESP32C6)
 constexpr int I2C_SDA = 19;
