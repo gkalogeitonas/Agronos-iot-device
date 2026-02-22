@@ -22,7 +22,7 @@ ESP32 firmware that reads sensors and publishes data via MQTT (primary) or HTTP 
 - Use `getSharedDht(pin)` from [dht_shared.h](../include/dht_shared.h) - never create DHT instances directly
 - Pattern prevents read conflicts and `NaN` values on multi-value sensors
 
-### Smart Data Routing
+### Data Routing
 - [data_sender.cpp](../src/data_sender.cpp): MQTT-first with automatic HTTP fallback
 - Flow: Try MQTT → on failure fallback to HTTP → both use same JSON payload structure
 - Single payload format ensures protocol transparency to sensor layer

@@ -5,7 +5,7 @@ Lightweight ESP32 firmware that reads sensors and sends their measurements to an
 Overview
 - Runs on ESP32 (PlatformIO).
 - Reads configured sensors and sends JSON payloads via MQTT (preferred) or HTTP fallback.
-- MQTT support with automatic credential provisioning and smart routing.
+- MQTT support with automatic credential provisioning.
 - Captive Wi‑Fi portal for provisioning, persistent storage for Wi‑Fi creds, auth token, and MQTT credentials.
 
 Provisioning & Authentication
@@ -41,7 +41,7 @@ Repository structure (important files)
   - `include/dht_shared.h` / `src/dht_shared.cpp` — shared DHT instance per pin (prevents read conflicts).
   - `include/sensor_creator.h` — templated helper to register creator functions.
 - Data transport
-  - `include/data_sender.h`, `src/data_sender.cpp` — smart routing logic (MQTT-first with HTTP fallback) and payload builder.
+  - `include/data_sender.h`, `src/data_sender.cpp` —  MQTT-first with HTTP fallback and payload builder.
   - `include/mqtt_client.h`, `src/mqtt_client.cpp` — MQTT client wrapper for publishing sensor data.
 - Wi‑Fi portal / storage / auth
   - `wifi_portal.*`, `storage.*`, `auth.*` — provisioning and authentication helpers.
@@ -57,7 +57,6 @@ MQTT Support
 
 The device supports MQTT as the primary protocol for sending sensor data with automatic HTTP fallback:
 
-- **Smart Routing**: DataSender attempts MQTT first (if enabled and credentials available), falls back to HTTP if MQTT fails.
 - **Automatic Provisioning**: MQTT credentials (broker, username, password) are fetched from the backend after JWT authentication.
 - **Configurable**: Enable/disable MQTT via `MQTT_ENABLED` in `config.h`.
 - **Topics**: Publishes to `devices/{device-uuid}/sensors` with QoS 1 for reliability.
