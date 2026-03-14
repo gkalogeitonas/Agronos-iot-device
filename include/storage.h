@@ -50,6 +50,10 @@ public:
   // Device configuration - Atomic Setter
   void saveConfig(const DeviceConfig& cfg);
 
+  // LoRa frame counter persistence
+  uint32_t getLoraFcnt();
+  void setLoraFcnt(uint32_t fcnt);
+
   // Clear stored credentials and token
   void clearAll();
 

@@ -155,6 +155,19 @@ void Storage::setMqttEnabled(bool enabled) {
   saveConfig(cfg);
 }
 
+uint32_t Storage::getLoraFcnt() {
+  prefs.begin("lora", true);
+  uint32_t fcnt = prefs.getULong("fcnt", 0);
+  prefs.end();
+  return fcnt;
+}
+
+void Storage::setLoraFcnt(uint32_t fcnt) {
+  prefs.begin("lora", false);
+  prefs.putULong("fcnt", fcnt);
+  prefs.end();
+}
+
 void Storage::clearAll() {
   prefs.begin("wifi", false);
   prefs.clear();
@@ -166,6 +179,9 @@ void Storage::clearAll() {
   prefs.clear();
   prefs.end();
   prefs.begin("config", false);
+  prefs.clear();
+  prefs.end();
+  prefs.begin("lora", false);
   prefs.clear();
   prefs.end();
   
