@@ -46,3 +46,4 @@ include/Test-Device-1.h
 .gitignore
 include/Test-Device-2.h
 docs/report4.pdf
+include/Test-Device-LoRa-Battery.h
