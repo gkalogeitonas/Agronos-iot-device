@@ -21,6 +21,16 @@ static constexpr size_t MAX_PAYLOAD_SIZE = 246;
 
 Storage storage;
 
+static void printHex(const char* label, const uint8_t* data, size_t len) {
+    Serial.print(label);
+    Serial.print(": ");
+    for (size_t i = 0; i < len; ++i) {
+        if (data[i] < 0x10) Serial.print('0');
+        Serial.print(data[i], HEX);
+    }
+    Serial.println();
+}
+
 // Sensor instances created via factory
 static std::vector<std::unique_ptr<SensorBase>> sensors;
 
@@ -46,7 +56,7 @@ static void checkButtonReset() {
 
 void setup() {
     Serial.begin(115200);
-    delay(200);
+    delay(2000);
     Serial.println("================================");
     Serial.println(" Agronos LoRa Node");
     Serial.println("================================");
@@ -108,6 +118,7 @@ void setup() {
         esp_deep_sleep_start();
     }
     Serial.printf("Payload: %u bytes (%u sensors)\n", payloadLen, readings.size());
+    printHex("Raw payload", plaintext, payloadLen);
 
     // 6. Get next frame counter
     uint32_t fcnt = fcntNext(storage);
@@ -124,6 +135,8 @@ void setup() {
         esp_sleep_enable_timer_wakeup((uint64_t)SENSORS_READ_INTERVAL_MS * 1000ULL);
         esp_deep_sleep_start();
     }
+
+    printHex("Encrypted payload", ciphertext, payloadLen);
 
     // 8. Transmit via LoRa
     if (loraTransmit(LORA_DEVICE_ID, fcnt, ciphertext, payloadLen)) {
