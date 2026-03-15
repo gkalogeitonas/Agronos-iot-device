@@ -12,8 +12,7 @@
 
 ## Περίληψη
 
-Η παρούσα αναφορά καταγράφει την υλοποίηση του **firmware κόμβου LoRa** για την πλατφόρμα Agronos. Αναπτύχθηκε ένας νέος, ανεξάρτητος τύπος συσκευής που λειτουργεί αποκλειστικά μέσω LoRa radio, χωρίς χρήση WiFi/MQTT/HTTP. Ο κόμβος διαβάζει αισθητήρες, σειριοποιεί τα δεδομένα σε δυαδικό format, τα κρυπτογραφεί με AES-128-CTR και τα μεταδίδει στο LoRa Gateway, το οποίο τα προωθεί στο backend. Όλα τα κρυπτογραφικά πρωτόκολλα έχουν σχεδιαστεί ώστε να είναι πλήρως συμβατά με την `LoRaCryptoService` που υλοποιήθηκε στο Laravel (Αναφορά 5).
-
+Η παρούσα αναφορά καταγράφει την υλοποίηση του **firmware κόμβου LoRa** για την πλατφόρμα Agronos. Αναπτύχθηκε ένας νέος, ανεξάρτητος τύπος συσκευής που λειτουργεί αποκλειστικά μέσω LoRa radio, χωρίς χρήση WiFi. Ο κόμβος διαβάζει αισθητήρες, σειριοποιεί τα δεδομένα, τα κρυπτογραφεί με AES-128-CTR και τα μεταδίδει στο LoRa Gateway, το οποίο τα προωθεί στο backend. Όλα τα κρυπτογραφικά πρωτόκολλα έχουν σχεδιαστεί ώστε να είναι πλήρως συμβατά με την `LoRaCryptoService` που υλοποιήθηκε στο Laravel (Αναφορά 5). 
 
 
 ## Αρχιτεκτονική Επικοινωνίας LoRa
@@ -189,11 +188,11 @@ void buildNonce(const char* uuid, uint32_t fcnt, uint8_t nonce[16]) {
 }
 ```
 
-Το CRC32 χρησιμοποιείται αντί του αριθμητικού `devices.id` ώστε η συσκευή να μην χρειάζεται να γνωρίζει εκ των προτέρων το database ID — αρκεί το UUID που ορίζεται ήδη στο device profile.
+
 
 ### Κρυπτογράφηση
 
-Χρησιμοποιείται η βιβλιοθήκη `mbedtls` που είναι ενσωματωμένη στο ESP-IDF. Η λειτουργία AES-CTR παράγει ciphertext ακριβώς ίδιου μεγέθους με το plaintext — **χωρίς padding**.
+Χρησιμοποιείται η βιβλιοθήκη `mbedtls`. Η λειτουργία AES-CTR παράγει ciphertext ακριβώς ίδιου μεγέθους με το plaintext 
 
 ```cpp
 mbedtls_aes_crypt_ctr(&ctx, len, &ncOffset, nonceCounter, streamBlock,
@@ -248,7 +247,6 @@ bool loraRadioInit() {
 }
 ```
 
-Οι ρυθμίσεις είναι **πανομοιότυπες** με τις default τιμές του Gateway (`config.cpp`), εξασφαλίζοντας άμεση συμβατότητα.
 
 ### Δομή Πακέτου Μετάδοσης
 
@@ -268,7 +266,7 @@ bool loraTransmit(const char* uuid, uint32_t fcnt,
 }
 ```
 
-Η νέα δομή πακέτου `[1B uuid_len][UUID bytes][4B fcnt LE][ciphertext]` επιτρέπει στο backend να αναγνωρίζει τη συσκευή απευθείας από το UUID, χωρίς η συσκευή να χρειάζεται να γνωρίζει το numeric database ID.
+Η νέα δομή πακέτου `[1B uuid_len][UUID bytes][4B fcnt LE][ciphertext]` επιτρέπει στο backend να αναγνωρίζει τη συσκευή απευθείας από το UUID.
 
 Το Gateway λαμβάνει αυτό το πακέτο ως `raw[]` μέσω `loraPoll()`, το κωδικοποιεί σε hex string και το εμπεριέχει στο JSON προς τον EMQX Broker. Το backend αποκωδικοποιεί το hex, εξάγει πρώτα το UUID length, μετά το UUID, τον frame counter, και αποκρυπτογραφεί το υπόλοιπο.
 
@@ -334,3 +332,262 @@ setup()
 - [include/config.h](../include/config.h) — LoRa pin definitions, radio settings, fcnt constants, button pin fix
 - [include/device_profile.h.example](../include/device_profile.h.example) — `LORA_AES_KEY`
 - [include/storage.h](../include/storage.h) / [src/storage.cpp](../src/storage.cpp) — `getLoraFcnt()`, `setLoraFcnt()`, επέκταση `clearAll()`
+
+
+## LoRa Gateway
+
+*Repository:** https://github.com/gkalogeitonas/ESP32-LoRa-to-Internet-Gateway
+
+
+Η ανάγκη για τη δημιουργία του LoRa Gateway προέκυψε από την πρακτική απαίτηση να γεφυρωθεί το τοπικό LoRa δίκτυο με το Internet χωρίς το υψηλό κόστος  και  την πολυπλοκότητα ενός πλήρους LoRaWAN concentrator. Το gateway λειτουργεί ως ελαφρύ transport-layer bridge: λαμβάνει αδιαφανή LoRa πακέτα, τα εμπλουτίζει με ραδιομεταδεδομένα και τα προωθεί προς MQTT ή HTTP, χωρίς να αποκρυπτογραφεί το περιεχόμενο. Αυτή η προσέγγιση μειώνει δραστικά το κόστος υλοποίησης και συντήρησης (hardware, provisioning, και λειτουργική πολυπλοκότητα), επιτρέπει γρήγορη επιτόπια εγκατάσταση και παραμετροποίηση και είναι ιδιαίτερα κατάλληλη για μικρής έως μεσαίας κλίμακας αγροτικές εφαρμογές. Παράλληλα, διατηρείται το μοντέλο ασφαλείας “zero‑trust”: τα κρυπτογραφημένα δεδομένα παραμένουν αδιάβλητα μέχρι το backend, όπου γίνεται η αποκρυπτογράφηση και η επεξεργασία. Με αυτόν τον τρόπο το gateway προσφέρει έναν πρακτικό, οικονομικό και ασφαλή ενδιάμεσο κρίκο ανάμεσα στους LoRa κόμβους και την πλατφόρμα Agronos.
+
+Επιπλέον, το LoRa Gateway επιλέχθηκε και αναπτύχθηκε ως ανεξάρτητο project, ξεχωριστό από το κύριο repository του Agronos, ώστε να λειτουργεί ως γενικό, επαναχρησιμοποιήσιμο εργαλείο που μπορεί να αξιοποιηθεί από την πλατφόρμα Agronos και από άλλα συστήματα· αυτή η επιλογή επιτρέπει ανεξάρτητη συντήρηση, μεγαλύτερη ευελιξία στην ανάπτυξη και σημαντικά μειωμένο κόστος εγκατάστασης σε σχέση με την υλοποίηση ενός πλήρους LoRaWAN concentrator.
+
+## Hardware Target και PlatformIO Environment
+
+Το project στοχεύει αποκλειστικά την **TTGO LoRa32 v2.1**, η οποία ενσωματώνει:
+
+- **ESP32-D0WDQ6** MCU
+- **SX1276** LoRa transceiver (868 MHz έκδοση)
+- **SSD1306** OLED οθόνη μέσω I2C
+- Είσοδο μέτρησης μπαταρίας μέσω GPIO35
+- Υποστήριξη LiPo τροφοδοσίας
+
+Το αντίστοιχο PlatformIO environment είναι:
+
+```ini
+[env:ttgo-lora32-v21]
+platform = espressif32
+board = ttgo-lora32-v21
+framework = arduino
+
+monitor_speed = 115200
+
+board_build.filesystem = littlefs
+board_build.partitions = huge_app.csv
+```
+
+Οι κύριες βιβλιοθήκες που χρησιμοποιούνται είναι:
+
+- `sandeepmistry/LoRa` για SX1276 radio handling
+- `ESP Async WebServer` και `AsyncTCP` για το captive portal
+- `ArduinoJson` για config και payload serialization
+- `PubSubClient` για MQTT forwarding
+- `ESP32 OLED driver for SSD1306` για το dashboard
+
+---
+
+## Runtime Αρχιτεκτονική
+
+Η εκκίνηση του firmware στο `setup()` ακολουθεί συγκεκριμένη σειρά αρχικοποίησης:
+
+```text
+configInit()
+  → displayInit()
+  → batteryInit()
+  → loraInit(gConfig)
+  → wifiInit(gConfig)
+  → wifiScanSync()
+  → webServerInit()
+  → forwarderInit(gConfig)
+```
+
+Η σειρά αυτή είναι κρίσιμη διότι:
+
+- το `configInit()` πρέπει να προηγηθεί ώστε να φορτωθεί το `gConfig`
+- το `displayInit()` χρησιμοποιείται από νωρίς για boot/status μηνύματα
+- το `loraInit()` εξαρτάται από τα LoRa πεδία του config
+- το `wifiInit()` αποφασίζει αν η συσκευή θα μπει σε STA ή AP mode
+- το `webServerInit()` ξεκινά αφού υπάρχει διαθέσιμο δίκτυο ή captive AP
+- το `forwarderInit()` εξαρτάται από το αν έχει επιλεγεί MQTT ή HTTP
+
+Το `loop()` ακολουθεί cooperative αρχιτεκτονική χωρίς RTOS tasks. Οι επιμέρους λειτουργίες εκτελούνται περιοδικά μέσω `millis()`-based cadence:
+
+- battery polling κάθε 30 s
+- OLED refresh κάθε 1 s
+- MQTT keepalive κάθε 100 ms
+- WiFi reconnect attempt κάθε 60 s
+- LoRa packet polling σε κάθε iteration
+
+Η επιλογή αυτή κρατά το firmware απλό, ντετερμινιστικό και εύκολο να τεκμηριωθεί ακαδημαϊκά.
+
+---
+
+## Διαχείριση Ρυθμίσεων: `config.cpp`
+
+Η δομή `GatewayConfig` αποτελεί το μοναδικό σημείο αλήθειας για τη runtime κατάσταση του gateway. Περιλαμβάνει:
+
+- WiFi SSID και password
+- LoRa frequency, spreading factor, bandwidth, coding rate, sync word
+- επιλογή forwarding mode (`use_mqtt`)
+- MQTT broker, port, topic, credentials
+- HTTP endpoint URL
+- `gateway_id`
+
+Οι ρυθμίσεις αποθηκεύονται στο αρχείο `/config.json` στο LittleFS. Αν το αρχείο δεν υπάρχει, εκτελείται `configDefaults()` και δημιουργείται νέο default configuration.
+
+
+## Captive Portal και Web-Based Παραμετροποίηση
+
+Το gateway διαθέτει ενσωματωμένο web interface για επιτόπια ρύθμιση χωρίς re-flash. Αν δεν υπάρχουν έγκυρα WiFi credentials, η συσκευή ενεργοποιεί Access Point με SSID:
+
+```text
+LoRa-GW-Setup
+```
+
+Παράλληλα ενεργοποιείται `DNSServer` wildcard redirection, ώστε οι περισσότερες συσκευές να οδηγούνται αυτόματα στο captive portal.
+
+### Ενότητες Web UI
+
+Η σελίδα configuration περιλαμβάνει τρεις βασικές ενότητες:
+
+1. **WiFi Settings**
+   - επιλογή SSID από scan
+   - manual εισαγωγή SSID
+   - password
+   - rescan networks
+
+2. **LoRa Settings**
+   - έτοιμα EU868 channel presets
+   - custom frequency input
+   - spreading factor (`SF7`–`SF12`)
+   - bandwidth (`125/250/500 kHz`)
+   - coding rate (`4/5` έως `4/8`)
+   - sync word
+
+3. **Data Forwarding**
+   - επιλογή MQTT ή HTTP
+   - MQTT broker / port / topic / credentials
+   - HTTP POST URL
+   - `gateway_id`
+
+Οι HTTP handlers δεν εφαρμόζουν βαριές αλλαγές απευθείας. Αποθηκεύουν το νέο config και θέτουν flags όπως:
+
+- `flagWifiChanged`
+- `flagLoraChanged`
+- `flagForwardChanged`
+- `flagRestartRequested`
+- `flagRescanRequested`
+
+Η πραγματική επαναδιαμόρφωση γίνεται αργότερα από το `loop()` του `main.cpp`. Αυτή η απόφαση αποφεύγει blocking work μέσα σε async web callbacks και κρατά σταθερή τη συμπεριφορά του web server.
+
+<!-- Εικονα απο webUI -->
+
+---
+
+## LoRa Radio Driver: `lora_radio.cpp`
+
+Το υποσύστημα LoRa βασίζεται στη βιβλιοθήκη `LoRa` του Sandeep Mistry και αρχικοποιεί το SPI bus και τα radio pins της TTGO LoRa32.
+
+Η αρχικοποίηση περιλαμβάνει:
+
+```cpp
+SPI.begin(LORA_SCK_PIN, LORA_MISO_PIN, LORA_MOSI_PIN, LORA_SS_PIN);
+LoRa.setPins(LORA_SS_PIN, LORA_RST_PIN, LORA_DIO0_PIN);
+LoRa.begin(cfg.lora_frequency);
+LoRa.setSpreadingFactor(cfg.lora_sf);
+LoRa.setSignalBandwidth(cfg.lora_bandwidth);
+LoRa.setCodingRate4(cfg.lora_coding_rate);
+LoRa.setSyncWord(cfg.lora_sync_word);
+LoRa.receive();
+```
+
+Ο driver λειτουργεί αποκλειστικά σε receive mode. Κάθε νέο πακέτο συλλέγεται μέσω `loraPoll()` και αποθηκεύεται σε `LoRaPacket` με τα εξής στοιχεία:
+
+- `raw[]` bytes
+- `size`
+- `rssi`
+- `snr`
+- `frequency`
+- `sf`
+- `timestamp`
+
+Το `timestamp` βασίζεται στο `millis()` του ESP32 και χρησιμοποιείται ως local ingress timestamp του gateway. Δεν αντικαθιστά το application timestamp του backend, αλλά δίνει χρήσιμο διαγνωστικό context.
+
+---
+
+## Προώθηση Δεδομένων: MQTT και HTTP
+
+Το `forwarder.cpp` μετατρέπει κάθε εισερχόμενο LoRa frame σε JSON payload. Το schema είναι:
+
+```json
+{
+  "gateway_id": "lora-gw-001",
+  "timestamp": 123456,
+  "rssi": -87,
+  "snr": 7.5,
+  "spreading_factor": 10,
+  "frequency": 868100000,
+  "packet_size": 14,
+  "raw_payload": "010000000A000000D44F8C..."
+}
+```
+
+### `raw_payload` ως Hex String
+
+Το radio payload δεν αποσυντίθεται από το gateway. Μετατρέπεται σε hex string και προωθείται αυτούσιο. Αυτό επιτρέπει:
+
+- μεταφορά binary ciphertext μέσω JSON χωρίς αλλοίωση
+- διατήρηση πλήρους συμβατότητας με την anti-replay και decrypt λογική του backend
+- αυστηρό διαχωρισμό ευθυνών μεταξύ gateway και εφαρμογικού επιπέδου
+
+### MQTT Mode
+
+Αν `use_mqtt = true`, το gateway συνδέεται στον broker με `PubSubClient` και κάνει publish στο configured topic. Στο πλαίσιο της διπλωματικής, η προτεινόμενη μορφή topic είναι:
+
+```text
+lora/{gateway_id}/data
+```
+
+Αυτό ευθυγραμμίζεται πλήρως με τη ροή που περιγράφηκε στην Αναφορά 5.
+
+### HTTP Mode
+
+Αν `use_mqtt = false`, το ίδιο JSON στέλνεται μέσω `HTTPClient::POST()` στο configured endpoint. Το mode αυτό είναι χρήσιμο για:
+
+- απλούστερα εργαστηριακά setups
+- debugging χωρίς broker
+- άμεση σύνδεση με backend webhook ή intermediate service
+
+Η ύπαρξη και των δύο modes επιτρέπει στην ίδια firmware βάση να εξυπηρετεί τόσο το production-oriented architecture του PRD όσο και απλούστερα proof-of-concept σενάρια.
+
+---
+
+## Παρακολούθηση Μπαταρίας και Προστασία Συσκευής
+
+Η μέτρηση της μπαταρίας γίνεται μέσω ADC στο **GPIO35**, αξιοποιώντας τον ενσωματωμένο voltage divider της TTGO πλακέτας. Η μετατροπή τάσης σε ποσοστό βασίζεται σε piecewise linear interpolation επάνω σε καμπύλη εκφόρτισης LiPo.
+
+Όταν το επίπεδο πέσει κάτω από 5%, καλείται:
+
+```cpp
+loraDisable();
+```
+
+Με αυτόν τον τρόπο η συσκευή σταματά τη λειτουργία του radio και προστατεύει το στοιχείο τροφοδοσίας από deep discharge. Η κατάσταση αυτή προβάλλεται και στην OLED ως `LoRa OFF (low batt)`.
+
+---
+
+## OLED Dashboard
+
+Η OLED 128x64 λειτουργεί ως κύριο μέσο επιτόπιας διάγνωσης. Η σελίδα dashboard εμφανίζει:
+
+- εικονίδιο WiFi / AP mode
+- IP address ή ένδειξη `AP Mode`
+- battery percentage και battery icon
+- τελευταία ληφθείσα τιμή `SF / RSSI`
+- current channel / configured SF
+- counters `Rx` και `Fwd`
+
+Αυτό είναι ιδιαίτερα χρήσιμο στο πεδίο, όπου δεν υπάρχει πάντα πρόσβαση σε serial monitor ή laptop. Ο χρήστης μπορεί να επιβεβαιώσει άμεσα αν:
+
+- το gateway έχει συνδεθεί στο WiFi
+- ακούει στο σωστό κανάλι
+- λαμβάνει πακέτα
+- προωθεί επιτυχώς τα δεδομένα
+
+<!-- Είκονα απο OLED Οθόνη -->
+
+---
+
+
+
