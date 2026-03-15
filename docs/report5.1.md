@@ -23,7 +23,7 @@
 ```
 [LoRa Node - TTGO LoRa32]
         │   LoRa Radio (868MHz, SF10)
-        │   Πακέτο: [4B devId][4B fcnt][AES-CTR ciphertext]
+        │   Πακέτο: [1B uuid_len][UUID bytes][4B fcnt][AES-CTR ciphertext]
         ▼
 [LoRa Gateway - ESP32]
         │   MQTT   topic: lora/{gateway_uuid}/data
@@ -117,13 +117,9 @@ constexpr int BUTTON_PIN = 14;
 
 ## Προφίλ Συσκευής με LoRa Διαπιστευτήρια
 
-Το `device_profile.h` (και το αντίστοιχο `device_profile.h.example`) επεκτάθηκε με δύο νέα πεδία:
+Το `device_profile.h` (και το αντίστοιχο `device_profile.h.example`) περιέχει μόνο το AES κλειδί ως LoRa-specific ρύθμιση:
 
 ```cpp
-// LORA_DEVICE_ID: ο αριθμητικός πρωτεύων κλειδί devices.id στη βάση Laravel
-// (ΟΧΙ το UUID string — χρησιμοποιείται για την κατασκευή του Nonce)
-constexpr uint32_t LORA_DEVICE_ID = 1;
-
 // 128-bit AES key (συμπίπτει με το lora_aes_key hex στη βάση δεδομένων)
 constexpr uint8_t LORA_AES_KEY[16] = {
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
@@ -131,7 +127,7 @@ constexpr uint8_t LORA_AES_KEY[16] = {
 };
 ```
 
-Το `LORA_DEVICE_ID` είναι ο **αριθμητικός** `id` (auto-increment) της συσκευής στη βάση δεδομένων, και όχι το UUID string. Αυτό είναι κρίσιμο για τη συμβατότητα nonce με το backend, που χρησιμοποιεί ακριβώς αυτό το ID στη `LoRaCryptoService`.
+Η αναγνώριση της συσκευής γίνεται μέσω του `DEFAULT_UUID` που ήδη ορίζεται στο device profile. Δεν χρειάζεται ξεχωριστό `LORA_DEVICE_ID` — η συσκευή δεν χρειάζεται να γνωρίζει το numeric `devices.id` του backend. Το UUID ενσωματώνεται στο LoRa πακέτο ως header, ώστε το backend να αναγνωρίζει τη συσκευή, και χρησιμοποιείται (μέσω CRC32 hash) για την κατασκευή του nonce.
 
 ---
 
@@ -168,16 +164,32 @@ memcpy(chunk + 4, &scaled, sizeof(int16_t));
 Το 16-byte nonce κατασκευάζεται ντετερμινιστικά από γνωστές τιμές, χωρίς να χρειαστεί μετάδοσή του στον αέρα. Η δομή είναι πανομοιότυπη με αυτή του backend:
 
 ```
-Nonce[16] = [4B: LORA_DEVICE_ID LE] [4B: fcnt LE] [8B: 0x00]
+Nonce[16] = [4B: CRC32(DEFAULT_UUID) LE] [4B: fcnt LE] [8B: 0x00]
 ```
 
+Η `uuidHash()` υπολογίζει standard CRC32 (polynomial `0xEDB88320`), πανομοιότυπο με τη PHP `crc32()`, ώστε firmware και backend να παράγουν ακριβώς το ίδιο nonce.
+
 ```cpp
-void buildNonce(uint32_t deviceId, uint32_t fcnt, uint8_t nonce[16]) {
+uint32_t uuidHash(const char* uuid) {
+    uint32_t crc = 0xFFFFFFFF;
+    while (*uuid) {
+        crc ^= (uint8_t)*uuid++;
+        for (int j = 0; j < 8; ++j) {
+            crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+        }
+    }
+    return crc ^ 0xFFFFFFFF;
+}
+
+void buildNonce(const char* uuid, uint32_t fcnt, uint8_t nonce[16]) {
     memset(nonce, 0, 16);
-    memcpy(nonce, &deviceId, 4);   // Little-Endian (native on ESP32)
+    uint32_t hash = uuidHash(uuid);
+    memcpy(nonce, &hash, 4);   // Little-Endian (native on ESP32)
     memcpy(nonce + 4, &fcnt, 4);
 }
 ```
+
+Το CRC32 χρησιμοποιείται αντί του αριθμητικού `devices.id` ώστε η συσκευή να μην χρειάζεται να γνωρίζει εκ των προτέρων το database ID — αρκεί το UUID που ορίζεται ήδη στο device profile.
 
 ### Κρυπτογράφηση
 
@@ -241,20 +253,24 @@ bool loraRadioInit() {
 ### Δομή Πακέτου Μετάδοσης
 
 ```cpp
-bool loraTransmit(uint32_t deviceId, uint32_t fcnt,
+bool loraTransmit(const char* uuid, uint32_t fcnt,
                   const uint8_t* ciphertext, size_t cipherLen) {
-    uint8_t header[8];
-    memcpy(header, &deviceId, 4);     // Bytes 0-3: Device ID (LE)
-    memcpy(header + 4, &fcnt, 4);     // Bytes 4-7: Frame Counter (LE)
+    uint8_t uuidLen = (uint8_t)strlen(uuid);
+    uint8_t fcntBytes[4];
+    memcpy(fcntBytes, &fcnt, 4);       // ESP32 is natively LE
 
     LoRa.beginPacket();
-    LoRa.write(header, 8);
-    LoRa.write(ciphertext, cipherLen);
+    LoRa.write(uuidLen);               // Byte 0: UUID length
+    LoRa.write((const uint8_t*)uuid, uuidLen);  // Bytes 1..N: UUID (ASCII)
+    LoRa.write(fcntBytes, 4);          // Bytes N+1..N+4: Frame Counter (LE)
+    LoRa.write(ciphertext, cipherLen); // Bytes N+5..: Ciphertext
     LoRa.endPacket(true);              // Blocking TX
 }
 ```
 
-Το Gateway λαμβάνει αυτό το πακέτο ως `raw[]` μέσω `loraPoll()`, το κωδικοποιεί σε hex string και το εμπεριέχει στο JSON προς τον EMQX Broker. Το backend αποκωδικοποιεί το hex, εξάγει τα πρώτα 8 bytes ως header, και αποκρυπτογραφεί το υπόλοιπο.
+Η νέα δομή πακέτου `[1B uuid_len][UUID bytes][4B fcnt LE][ciphertext]` επιτρέπει στο backend να αναγνωρίζει τη συσκευή απευθείας από το UUID, χωρίς η συσκευή να χρειάζεται να γνωρίζει το numeric database ID.
+
+Το Gateway λαμβάνει αυτό το πακέτο ως `raw[]` μέσω `loraPoll()`, το κωδικοποιεί σε hex string και το εμπεριέχει στο JSON προς τον EMQX Broker. Το backend αποκωδικοποιεί το hex, εξάγει πρώτα το UUID length, μετά το UUID, τον frame counter, και αποκρυπτογραφεί το υπόλοιπο.
 
 ---
 
@@ -272,9 +288,9 @@ setup()
   ├─ sensors[i]->read()      → Ανάγνωση τιμών
   ├─ serializeReadings()     → Binary payload (N × 6 bytes)
   ├─ fcntNext(storage)       → Αύξηση counter + lazy NVS save
-  ├─ buildNonce()            → [devId LE][fcnt LE][zeros]
+  ├─ buildNonce()            → [CRC32(UUID) LE][fcnt LE][zeros]
   ├─ encryptPayload()        → AES-128-CTR via mbedtls
-  ├─ loraTransmit()          → [4B devId][4B fcnt][ciphertext]
+  ├─ loraTransmit()          → [1B uuid_len][UUID][4B fcnt][ciphertext]
   ├─ loraRadioSleep()        → LoRa radio σε sleep mode
   └─ esp_deep_sleep_start()  → ESP32 deep sleep για SENSORS_READ_INTERVAL_MS
 ```
@@ -316,5 +332,5 @@ setup()
 **Τροποποιημένα αρχεία:**
 - [platformio.ini](../platformio.ini) — Προσθήκη `[env:ttgo-lora32-v21]`, src_filter σε όλα τα environments
 - [include/config.h](../include/config.h) — LoRa pin definitions, radio settings, fcnt constants, button pin fix
-- [include/device_profile.h.example](../include/device_profile.h.example) — `LORA_DEVICE_ID`, `LORA_AES_KEY`
+- [include/device_profile.h.example](../include/device_profile.h.example) — `LORA_AES_KEY`
 - [include/storage.h](../include/storage.h) / [src/storage.cpp](../src/storage.cpp) — `getLoraFcnt()`, `setLoraFcnt()`, επέκταση `clearAll()`

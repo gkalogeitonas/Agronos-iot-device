@@ -2,15 +2,29 @@
 #include <cstring>
 #include <mbedtls/aes.h>
 
+// Standard CRC32 (polynomial 0xEDB88320, same as PHP crc32() and zlib).
+// Produces identical output to PHP's crc32() for the same input string.
+uint32_t uuidHash(const char* uuid) {
+    uint32_t crc = 0xFFFFFFFF;
+    while (*uuid) {
+        crc ^= (uint8_t)*uuid++;
+        for (int j = 0; j < 8; ++j) {
+            crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+        }
+    }
+    return crc ^ 0xFFFFFFFF;
+}
+
 // Build a deterministic 16-byte nonce for AES-128-CTR.
 // Layout must match Laravel LoRaCryptoService::decrypt():
-//   Bytes 0-3:  deviceId in Little-Endian
+//   Bytes 0-3:  CRC32(UUID) in Little-Endian
 //   Bytes 4-7:  fcnt in Little-Endian
 //   Bytes 8-15: zeros
-void buildNonce(uint32_t deviceId, uint32_t fcnt, uint8_t nonce[16]) {
+void buildNonce(const char* uuid, uint32_t fcnt, uint8_t nonce[16]) {
     memset(nonce, 0, 16);
+    uint32_t hash = uuidHash(uuid);
     // ESP32 is natively Little-Endian, so memcpy produces LE bytes
-    memcpy(nonce, &deviceId, 4);
+    memcpy(nonce, &hash, 4);
     memcpy(nonce + 4, &fcnt, 4);
 }
 

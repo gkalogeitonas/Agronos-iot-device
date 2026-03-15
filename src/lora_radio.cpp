@@ -25,23 +25,25 @@ bool loraRadioInit() {
     return true;
 }
 
-bool loraTransmit(uint32_t deviceId, uint32_t fcnt,
+bool loraTransmit(const char* uuid, uint32_t fcnt,
                   const uint8_t* ciphertext, size_t cipherLen) {
-    if (!ciphertext || cipherLen == 0) return false;
+    if (!uuid || !ciphertext || cipherLen == 0) return false;
 
-    // Build packet: [4B deviceId LE][4B fcnt LE][ciphertext]
-    // ESP32 is natively LE so memcpy produces correct byte order
-    uint8_t header[8];
-    memcpy(header, &deviceId, 4);
-    memcpy(header + 4, &fcnt, 4);
+    uint8_t uuidLen = (uint8_t)strlen(uuid);
+
+    // Build packet: [1B uuid_len][UUID bytes][4B fcnt LE][ciphertext]
+    uint8_t fcntBytes[4];
+    memcpy(fcntBytes, &fcnt, 4); // ESP32 is natively LE
 
     LoRa.beginPacket();
-    LoRa.write(header, 8);
+    LoRa.write(uuidLen);
+    LoRa.write((const uint8_t*)uuid, uuidLen);
+    LoRa.write(fcntBytes, 4);
     LoRa.write(ciphertext, cipherLen);
     LoRa.endPacket(true); // true = blocking, wait for TX complete
 
-    Serial.printf("[LoRa] TX: devId=%u fcnt=%u payload=%u bytes (total=%u)\n",
-                  deviceId, fcnt, cipherLen, 8 + cipherLen);
+    Serial.printf("[LoRa] TX: uuid=%s fcnt=%u payload=%u bytes (total=%u)\n",
+                  uuid, fcnt, cipherLen, 1 + uuidLen + 4 + cipherLen);
     return true;
 }
 

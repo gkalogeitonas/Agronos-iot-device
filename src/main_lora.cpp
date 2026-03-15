@@ -125,7 +125,7 @@ void setup() {
 
     // 7. Build nonce and encrypt
     uint8_t nonce[16];
-    buildNonce(LORA_DEVICE_ID, fcnt, nonce);
+    buildNonce(DEFAULT_UUID, fcnt, nonce);
 
     uint8_t ciphertext[MAX_PAYLOAD_SIZE];
     if (!encryptPayload(plaintext, payloadLen, LORA_AES_KEY, nonce, ciphertext)) {
@@ -138,9 +138,13 @@ void setup() {
 
     printHex("Encrypted payload", ciphertext, payloadLen);
 
+    // Print all transited data for backend test purposes
+    Serial.printf("Transmit meta: uuid=%s, fcnt=%u, payloadLen=%u\n", DEFAULT_UUID, fcnt, payloadLen);
+    printHex("Transmit ciphertext", ciphertext, payloadLen);
+
     // 8. Transmit via LoRa
-    if (loraTransmit(LORA_DEVICE_ID, fcnt, ciphertext, payloadLen)) {
-        Serial.printf("TX success: devId=%u fcnt=%u\n", LORA_DEVICE_ID, fcnt);
+    if (loraTransmit(DEFAULT_UUID, fcnt, ciphertext, payloadLen)) {
+        Serial.printf("TX success: uuid=%s fcnt=%u\n", DEFAULT_UUID, fcnt);
     } else {
         Serial.println("TX failed");
     }

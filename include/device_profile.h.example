@@ -22,9 +22,8 @@ constexpr SensorConfig SENSOR_CONFIGS[] = {
 constexpr size_t SENSOR_CONFIG_COUNT = sizeof(SENSOR_CONFIGS) / sizeof(SENSOR_CONFIGS[0]);
 
 // === LoRa Configuration (only used when LORA_NODE is defined) ===
-// LORA_DEVICE_ID must match the numeric `devices.id` primary key in the Laravel database.
-// This is NOT the UUID string — it's the auto-increment integer ID used for nonce construction.
-constexpr uint32_t LORA_DEVICE_ID = 1;
+// No LORA_DEVICE_ID needed — the firmware uses DEFAULT_UUID for device
+// identification in the LoRa packet and for nonce construction (via CRC32).
 
 // 128-bit AES key shared with the backend's `lora_aes_key` column (hex string in DB).
 // Example: hex "000102030405060708090a0b0c0d0e0f" → byte array below.
