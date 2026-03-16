@@ -12,8 +12,7 @@
 
 ## Περίληψη
 
-Η παρούσα αναφορά καταγράφει την υλοποίηση του **firmware κόμβου LoRa** για την πλατφόρμα Agronos. Αναπτύχθηκε ένας νέος, ανεξάρτητος τύπος συσκευής που λειτουργεί αποκλειστικά μέσω LoRa radio, χωρίς χρήση WiFi. Ο κόμβος διαβάζει αισθητήρες, σειριοποιεί τα δεδομένα, τα κρυπτογραφεί με AES-128-CTR και τα μεταδίδει στο LoRa Gateway, το οποίο τα προωθεί στο backend. Όλα τα κρυπτογραφικά πρωτόκολλα έχουν σχεδιαστεί ώστε να είναι πλήρως συμβατά με την `LoRaCryptoService` που υλοποιήθηκε στο Laravel (Αναφορά 5). 
-
+Η παρούσα αναφορά καταγράφει την υλοποίηση του **firmware κόμβου LoRa** για την πλατφόρμα Agronos. Αναπτύχθηκε ένας νέος, ανεξάρτητος τύπος συσκευής που λειτουργεί αποκλειστικά μέσω LoRa radio, χωρίς χρήση WiFi. Ο κόμβος διαβάζει αισθητήρες, σειριοποιεί τα δεδομένα, τα κρυπτογραφεί με AES-128-CTR και τα μεταδίδει στο LoRa Gateway, το οποίο τα προωθεί στο backend. Όλα τα κρυπτογραφικά πρωτόκολλα έχουν σχεδιαστεί ώστε να είναι πλήρως συμβατά με την `LoRaCryptoService` που υλοποιήθηκε στο Laravel (Αναφορά 5).
 
 ## Αρχιτεκτονική Επικοινωνίας LoRa
 
@@ -136,14 +135,15 @@ constexpr uint8_t LORA_AES_KEY[16] = {
 
 **Δομή ανά αισθητήρα (6 bytes):**
 
-| Bytes | Περιεχόμενο |
-|-------|-------------|
-| 0–3 | Πρώτοι 4 χαρακτήρες (ASCII) του UUID αισθητήρα |
-| 4–5 | Τιμή × 100 ως `int16_t` Little-Endian |
+| Bytes | Περιεχόμενο                                    |
+| ----- | ---------------------------------------------- |
+| 0–3   | Πρώτοι 4 χαρακτήρες (ASCII) του UUID αισθητήρα |
+| 4–5   | Τιμή × 100 ως `int16_t` Little-Endian          |
 
 Η δομή αυτή είναι πανομοιότυπη με αυτή που αναμένει η `LoRaCryptoService::deserialize()` στο backend.
 
 **Παράδειγμα**: Αισθητήρας με UUID `"DHT2-Temp-1"`, τιμή `23.45`:
+
 - Bytes 0-3: `44 48 54 32` (ASCII: "DHT2")
 - Bytes 4-5: `0x0929` LE → `29 09` (2345 = 23.45 × 100)
 
@@ -188,11 +188,9 @@ void buildNonce(const char* uuid, uint32_t fcnt, uint8_t nonce[16]) {
 }
 ```
 
-
-
 ### Κρυπτογράφηση
 
-Χρησιμοποιείται η βιβλιοθήκη `mbedtls`. Η λειτουργία AES-CTR παράγει ciphertext ακριβώς ίδιου μεγέθους με το plaintext 
+Χρησιμοποιείται η βιβλιοθήκη `mbedtls`. Η λειτουργία AES-CTR παράγει ciphertext ακριβώς ίδιου μεγέθους με το plaintext
 
 ```cpp
 mbedtls_aes_crypt_ctr(&ctx, len, &ncOffset, nonceCounter, streamBlock,
@@ -200,6 +198,7 @@ mbedtls_aes_crypt_ctr(&ctx, len, &ncOffset, nonceCounter, streamBlock,
 ```
 
 Η χρήση του hardware-accelerated `mbedtls` εξασφαλίζει:
+
 1. **Ταχύτητα**: Ο ESP32 διαθέτει hardware AES accelerator
 2. **Ασφάλεια**: Καθιερωμένη βιβλιοθήκη, χωρίς custom κρυπτογραφικό κώδικα
 3. **Μηδενικές επιπλέον εξαρτήσεις**: Ήδη διαθέσιμη στο PlatformIO/ESP-IDF
@@ -218,11 +217,11 @@ RTC_DATA_ATTR static bool     rtcInitialized = false;
 RTC_DATA_ATTR static uint32_t txSinceLastSave = 0;  // Lazy save counter
 ```
 
-| Σενάριο | Συμπεριφορά |
-|---------|-------------|
-| **Deep Sleep Wake** | Η `rtcInitialized` είναι `true` → η RTC τιμή είναι έγκυρη, καμία NVS I/O |
-| **Cold Boot** (power loss) | Διαβάζει NVS, προσθέτει `FCNT_COLD_BOOT_GAP=100`, αποθηκεύει στο NVS |
-| **Κάθε 100 TX** | Lazy save: αποθηκεύει την τρέχουσα RTC τιμή στο NVS |
+| Σενάριο                    | Συμπεριφορά                                                              |
+| -------------------------- | ------------------------------------------------------------------------ |
+| **Deep Sleep Wake**        | Η `rtcInitialized` είναι `true` → η RTC τιμή είναι έγκυρη, καμία NVS I/O |
+| **Cold Boot** (power loss) | Διαβάζει NVS, προσθέτει `FCNT_COLD_BOOT_GAP=100`, αποθηκεύει στο NVS     |
+| **Κάθε 100 TX**            | Lazy save: αποθηκεύει την τρέχουσα RTC τιμή στο NVS                      |
 
 Το άλμα +100 σε cold boot εξασφαλίζει ότι ακόμη και αν η τελευταία NVS εγγραφή ήταν 99 μεταδόσεις πριν από την απώλεια ρεύματος, ο κόμβος επανεκκινεί με counter **πάνω** από τον τελευταίο μεταδοθέντα. Αυτό είναι ασφαλές γιατί το backend επιτρέπει άλμα έως `MAX_FCNT_GAP = 10.000`.
 
@@ -246,7 +245,6 @@ bool loraRadioInit() {
     LoRa.setTxPower(LORA_TX_POWER);       // 20 dBm
 }
 ```
-
 
 ### Δομή Πακέτου Μετάδοσης
 
@@ -301,18 +299,18 @@ setup()
 
 Βασικό αρχιτεκτονικό πλεονέκτημα: οι LoRa κόμβοι **επαναχρησιμοποιούν** το σύνολο της υπάρχουσας υποδομής αισθητήρων:
 
-| Υποδομή | WiFi Variant | LoRa Variant |
-|---------|:---:|:---:|
-| `sensor.h` / `SensorBase` | ✓ | ✓ |
-| `sensor_factory.cpp` | ✓ | ✓ |
-| `dht11_temp.cpp`, `dht11_hum.cpp` | ✓ | ✓ |
-| `dht20_sensors.cpp` | ✓ | ✓ |
-| `soil_moisture.cpp` | ✓ | ✓ |
-| `battery_level.cpp` | ✓ | ✓ |
-| `storage.cpp` (NVS) | ✓ | ✓ |
-| `wifi_portal.cpp` | ✓ | ✗ |
-| `auth.cpp` / `data_sender.cpp` | ✓ | ✗ |
-| `lora_*.cpp` | ✗ | ✓ |
+| Υποδομή                           | WiFi Variant | LoRa Variant |
+| --------------------------------- | :----------: | :----------: |
+| `sensor.h` / `SensorBase`         |      ✓       |      ✓       |
+| `sensor_factory.cpp`              |      ✓       |      ✓       |
+| `dht11_temp.cpp`, `dht11_hum.cpp` |      ✓       |      ✓       |
+| `dht20_sensors.cpp`               |      ✓       |      ✓       |
+| `soil_moisture.cpp`               |      ✓       |      ✓       |
+| `battery_level.cpp`               |      ✓       |      ✓       |
+| `storage.cpp` (NVS)               |      ✓       |      ✓       |
+| `wifi_portal.cpp`                 |      ✓       |      ✗       |
+| `auth.cpp` / `data_sender.cpp`    |      ✓       |      ✗       |
+| `lora_*.cpp`                      |      ✗       |      ✓       |
 
 Αυτό σημαίνει ότι η προσθήκη νέων αισθητήρων ακολουθεί ακριβώς την ίδια **3-step διαδικασία** και για τους δύο τύπους συσκευών.
 
@@ -321,6 +319,7 @@ setup()
 ## Σχετικά Αρχεία
 
 **Νέα αρχεία:**
+
 - [src/main_lora.cpp](../src/main_lora.cpp) — LoRa-only entry point
 - [src/lora_payload.cpp](../src/lora_payload.cpp) / [include/lora_payload.h](../include/lora_payload.h) — Binary serializer
 - [src/lora_crypto.cpp](../src/lora_crypto.cpp) / [include/lora_crypto.h](../include/lora_crypto.h) — AES-128-CTR + Nonce
@@ -328,18 +327,17 @@ setup()
 - [src/lora_radio.cpp](../src/lora_radio.cpp) / [include/lora_radio.h](../include/lora_radio.h) — LoRa Radio Driver
 
 **Τροποποιημένα αρχεία:**
+
 - [platformio.ini](../platformio.ini) — Προσθήκη `[env:ttgo-lora32-v21]`, src_filter σε όλα τα environments
 - [include/config.h](../include/config.h) — LoRa pin definitions, radio settings, fcnt constants, button pin fix
 - [include/device_profile.h.example](../include/device_profile.h.example) — `LORA_AES_KEY`
 - [include/storage.h](../include/storage.h) / [src/storage.cpp](../src/storage.cpp) — `getLoraFcnt()`, `setLoraFcnt()`, επέκταση `clearAll()`
 
-
 ## LoRa Gateway
 
-*Repository:** https://github.com/gkalogeitonas/ESP32-LoRa-to-Internet-Gateway
+\*Repository:\*\* https://github.com/gkalogeitonas/ESP32-LoRa-to-Internet-Gateway
 
-
-Η ανάγκη για τη δημιουργία του LoRa Gateway προέκυψε από την πρακτική απαίτηση να γεφυρωθεί το τοπικό LoRa δίκτυο με το Internet χωρίς το υψηλό κόστος  και  την πολυπλοκότητα ενός πλήρους LoRaWAN concentrator. Το gateway λειτουργεί ως ελαφρύ transport-layer bridge: λαμβάνει αδιαφανή LoRa πακέτα, τα εμπλουτίζει με ραδιομεταδεδομένα και τα προωθεί προς MQTT ή HTTP, χωρίς να αποκρυπτογραφεί το περιεχόμενο. Αυτή η προσέγγιση μειώνει δραστικά το κόστος υλοποίησης και συντήρησης (hardware, provisioning, και λειτουργική πολυπλοκότητα), επιτρέπει γρήγορη επιτόπια εγκατάσταση και παραμετροποίηση και είναι ιδιαίτερα κατάλληλη για μικρής έως μεσαίας κλίμακας αγροτικές εφαρμογές. Παράλληλα, διατηρείται το μοντέλο ασφαλείας “zero‑trust”: τα κρυπτογραφημένα δεδομένα παραμένουν αδιάβλητα μέχρι το backend, όπου γίνεται η αποκρυπτογράφηση και η επεξεργασία. Με αυτόν τον τρόπο το gateway προσφέρει έναν πρακτικό, οικονομικό και ασφαλή ενδιάμεσο κρίκο ανάμεσα στους LoRa κόμβους και την πλατφόρμα Agronos.
+Η ανάγκη για τη δημιουργία του LoRa Gateway προέκυψε από την πρακτική απαίτηση να γεφυρωθεί το τοπικό LoRa δίκτυο με το Internet χωρίς το υψηλό κόστος και την πολυπλοκότητα ενός πλήρους LoRaWAN concentrator. Το gateway λειτουργεί ως ελαφρύ transport-layer bridge: λαμβάνει αδιαφανή LoRa πακέτα, τα εμπλουτίζει με ραδιομεταδεδομένα και τα προωθεί προς MQTT ή HTTP, χωρίς να αποκρυπτογραφεί το περιεχόμενο. Αυτή η προσέγγιση μειώνει δραστικά το κόστος υλοποίησης και συντήρησης (hardware, provisioning, και λειτουργική πολυπλοκότητα), επιτρέπει γρήγορη επιτόπια εγκατάσταση και παραμετροποίηση και είναι ιδιαίτερα κατάλληλη για μικρής έως μεσαίας κλίμακας αγροτικές εφαρμογές. Παράλληλα, διατηρείται το μοντέλο ασφαλείας “zero‑trust”: τα κρυπτογραφημένα δεδομένα παραμένουν αδιάβλητα μέχρι το backend, όπου γίνεται η αποκρυπτογράφηση και η επεξεργασία. Με αυτόν τον τρόπο το gateway προσφέρει έναν πρακτικό, οικονομικό και ασφαλή ενδιάμεσο κρίκο ανάμεσα στους LoRa κόμβους και την πλατφόρμα Agronos.
 
 Επιπλέον, το LoRa Gateway επιλέχθηκε και αναπτύχθηκε ως ανεξάρτητο project, ξεχωριστό από το κύριο repository του Agronos, ώστε να λειτουργεί ως γενικό, επαναχρησιμοποιήσιμο εργαλείο που μπορεί να αξιοποιηθεί από την πλατφόρμα Agronos και από άλλα συστήματα· αυτή η επιλογή επιτρέπει ανεξάρτητη συντήρηση, μεγαλύτερη ευελιξία στην ανάπτυξη και σημαντικά μειωμένο κόστος εγκατάστασης σε σχέση με την υλοποίηση ενός πλήρους LoRaWAN concentrator.
 
@@ -426,7 +424,6 @@ configInit()
 
 Οι ρυθμίσεις αποθηκεύονται στο αρχείο `/config.json` στο LittleFS. Αν το αρχείο δεν υπάρχει, εκτελείται `configDefaults()` και δημιουργείται νέο default configuration.
 
-
 ## Captive Portal και Web-Based Παραμετροποίηση
 
 Το gateway διαθέτει ενσωματωμένο web interface για επιτόπια ρύθμιση χωρίς re-flash. Αν δεν υπάρχουν έγκυρα WiFi credentials, η συσκευή ενεργοποιεί Access Point με SSID:
@@ -471,7 +468,11 @@ LoRa-GW-Setup
 
 Η πραγματική επαναδιαμόρφωση γίνεται αργότερα από το `loop()` του `main.cpp`. Αυτή η απόφαση αποφεύγει blocking work μέσα σε async web callbacks και κρατά σταθερή τη συμπεριφορά του web server.
 
-<!-- Εικονα απο webUI -->
+![GateWay Dashboard](images/Screenshot2026-03-16at08-35-37LoRaGatewayConfig.png)
+
+*Εικόνα: Η OLED οθόνη του gateway με ένδειξη WiFi, battery, SF/RSSI, και counters Rx/Fwd.*
+
+
 
 ---
 
@@ -585,9 +586,9 @@ loraDisable();
 - λαμβάνει πακέτα
 - προωθεί επιτυχώς τα δεδομένα
 
-<!-- Είκονα απο OLED Οθόνη -->
+
+![OLED Dashboard Screenshot](images/photo_2026-03-16_08-36-37.jpg)
+
+*Εικόνα: Η OLED οθόνη του gateway με ένδειξη WiFi, battery, SF/RSSI, και counters Rx/Fwd.*
 
 ---
-
-
-
