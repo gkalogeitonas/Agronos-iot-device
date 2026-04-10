@@ -230,8 +230,7 @@ static bool sendMeasurements() {
 void loop()
 {
     portal->handle();
-
-    // Only run auth and send measurements when connected to Wi‑Fi
+    
     if (WiFi.status() != WL_CONNECTED) {
         // Not connected: skip auth.loop() and sendMeasurements()
         //Serial.println("WiFi not connected, skipping auth and send");
