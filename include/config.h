@@ -40,7 +40,7 @@ constexpr int I2C_SCL = 22;
 constexpr int DHT11_PIN = 21;
 
 // non-blocking read interval
-constexpr unsigned long SENSORS_READ_INTERVAL_MS = 3 * 60 * 1000; // 3 minute
+constexpr unsigned long SENSORS_READ_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 // Auth manager
 constexpr unsigned long AUTH_RETRY_INTERVAL_MS = 30000;
