@@ -1,5 +1,10 @@
 # Agronos WiFi Sensor
 
+> ## 🎓 Thesis release
+> This repository contains the device firmware developed for the thesis **"Σχεδιασμός και Υλοποίηση Πλατφόρμας Έξυπνης Γεωργίας με Ενσωμάτωση IoT Κόμβων"** (*Design and Implementation of a Smart Agriculture Platform with IoT Node Integration*) by Γεώργιος Καλογείτονας, Hellenic Open University (Ελληνικό Ανοικτό Πανεπιστήμιο), Patras, May 2026. Supervisor: Νικόλαος Σκλάβος. The server-side platform is in [gkalogeitonas/agronos](https://github.com/gkalogeitonas/agronos).
+>
+> The code exactly as referenced in the thesis text is frozen at the tag [`thesis-v1.0`](https://github.com/gkalogeitonas/Agronos-iot-device/tree/thesis-v1.0) ([release](https://github.com/gkalogeitonas/Agronos-iot-device/releases/tag/thesis-v1.0)). `main` may continue to evolve.
+
 Lightweight ESP32 firmware that reads sensors and sends their measurements to an IoT server via MQTT or HTTP.
 
 Overview
