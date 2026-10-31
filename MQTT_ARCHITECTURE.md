@@ -110,6 +110,7 @@
          │ - server            │
          │ - username          │
          │ - password          │
+         │ - topic_base        │
          │ Stored in NVS       │
          └──────────┬──────────┘
                     │
@@ -158,7 +159,7 @@
         │  │             │
     ┌───▼──▼─────────────▼─────┐
     │ Publish to MQTT          │
-    │ agronos/{uuid}/data      │
+    │ {topic_base}/sensors     │
     └───────┬──────────────────┘
             │
     ┌───────▼──────┐
@@ -254,24 +255,37 @@ ESP32 NVS (Non-Volatile Storage)
 │
 └── Namespace: "mqtt"
     ├── Key: "server"   → MQTT Broker Address
-    ├── Key: "username" → MQTT Username
-    └── Key: "password" → MQTT Password
+    ├── Key: "username"   → MQTT Username
+    ├── Key: "password"   → MQTT Password
+    └── Key: "topic_base" → Topic base, e.g. agronos/devices/{uuid}
 ```
 
 ## MQTT Topic Structure
 
+Topics are not hard-coded in the firmware. The MQTT credentials response
+(`GET /api/v1/device/mqtt-credentials`) returns a `topic_base`, e.g.
+`agronos/devices/{uuid}`, where `agronos` is the Agronos topic prefix
+(configurable on the backend, see agronos ADR-0007). The firmware appends a
+suffix to it, so a prefix change needs no firmware release.
+
 ```
-agronos/
-└── {device-uuid}/
-    ├── data           [PUBLISH - QoS 1]
-    │   └── Sensor readings
-    │
-    ├── status         [PUBLISH - QoS 0]
-    │   └── Device status/heartbeat
-    │
-    └── command        [SUBSCRIBE - QoS 1]
-        └── Commands from backend
+{topic_base} = {prefix}/devices/{device-uuid}     (default prefix: agronos)
+├── sensors        [PUBLISH - QoS 1]
+│   └── Sensor readings
+│
+├── status         [PUBLISH - QoS 0]
+│   └── Device status/heartbeat
+│
+└── commands       [reserved - device is publish-only today]
+    └── Commands from backend
 ```
+
+A response without `topic_base` is treated as a provisioning failure: nothing is
+stored, the device does not publish over MQTT and sends data via HTTP instead.
+There is no fallback to the old `devices/{uuid}/...` topics.
+
+**ACL**: Agronos writes a per-user broker ACL allowing `agronos/devices/<username>/#`.
+If publishes are rejected, check that rule and that `topic_base` matches it.
 
 ## Message Flow Examples
 
@@ -285,7 +299,8 @@ Device                  MQTT Broker              Backend
   │◀─── Connected ──────────│                       │
   │                          │                       │
   │──── PUBLISH ────────────▶│                       │
-  │  agronos/123/data        │                       │
+  │  agronos/devices/123/    │
+  │    sensors               │                       │
   │  {sensors:[...]}         │                       │
   │                          │                       │
   │                          │──── Forward ─────────▶│

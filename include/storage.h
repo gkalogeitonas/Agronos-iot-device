@@ -6,6 +6,7 @@ struct MqttCredentials {
     String server;
     String username;
     String password;
+    String topicBase;  // e.g. agronos/devices/{uuid}; topics are {topicBase}/<suffix>
     bool isValid;
 };
 
@@ -30,7 +31,7 @@ public:
 
   // MQTT credentials
   bool getMqttCredentials(MqttCredentials &creds);
-  void setMqttCredentials(const String &server, const String &username, const String &password);
+  void setMqttCredentials(const String &server, const String &username, const String &password, const String &topicBase);
   void clearMqttCredentials();
   bool hasMqttCredentials();
 

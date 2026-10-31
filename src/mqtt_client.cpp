@@ -21,6 +21,8 @@ MqttClient::MqttClient(Storage &storage, const char* deviceUuid)
     
     // No callback/subscriptions needed for this device (publish-only)
     mqttClient.setKeepAlive(AGRONOS_MQTT_KEEPALIVE);
+    // Default 256-byte packet buffer is tight for {topic_base}/sensors + multi-sensor JSON
+    mqttClient.setBufferSize(512);
 }
 
 bool MqttClient::loadCredentials() {
@@ -32,15 +34,13 @@ bool MqttClient::loadCredentials() {
     return credentialsLoaded && credentials.isValid;
 }
 
-String MqttClient::buildTopic(const char* topicTemplate) const {
-    char topic[128];
-    snprintf(topic, sizeof(topic), topicTemplate, deviceUuid);
-    return String(topic);
+String MqttClient::buildTopic(const char* suffix) const {
+    return credentials.topicBase + "/" + suffix;
 }
 
 bool MqttClient::connect() {
     if (!loadCredentials()) {
-        Serial.println("Cannot connect to MQTT: No credentials available");
+        Serial.println("Cannot connect to MQTT: no valid provisioned credentials (server/username/password/topic_base)");
         return false;
     }
     
@@ -113,7 +113,7 @@ bool MqttClient::publishSensorDataPayload(const char* payload) {
         return false;
     }
 
-    String topic = buildTopic(AGRONOS_MQTT_TOPIC_DATA);
+    String topic = buildTopic(AGRONOS_MQTT_TOPIC_SUFFIX_DATA);
     Serial.print("Publishing to MQTT topic: "); Serial.println(topic);
     Serial.print("Payload: "); Serial.println(payload);
 
@@ -133,7 +133,7 @@ bool MqttClient::publishStatus(const char* status) {
         return false;
     }
     
-    String topic = buildTopic(AGRONOS_MQTT_TOPIC_STATUS);
+    String topic = buildTopic(AGRONOS_MQTT_TOPIC_SUFFIX_STATUS);
     return mqttClient.publish(topic.c_str(), status, false);
 }
 

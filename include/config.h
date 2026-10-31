@@ -57,11 +57,12 @@ constexpr uint16_t AGRONOS_MQTT_KEEPALIVE = 60;          // Keep-alive interval 
 constexpr uint16_t AGRONOS_MQTT_RECONNECT_DELAY = 5000;  // Reconnection delay (ms)
 constexpr bool AGRONOS_MQTT_CLEAN_SESSION = true;        // Start with clean session
 
-// MQTT topics (will be formatted with device UUID)
-// Use topics matching broker ACL: devices/<username>/# so EMQX allows publishes
-constexpr const char* AGRONOS_MQTT_TOPIC_DATA = "devices/%s/sensors";
-constexpr const char* AGRONOS_MQTT_TOPIC_STATUS = "devices/%s/status";
-constexpr const char* AGRONOS_MQTT_TOPIC_COMMAND = "devices/%s/commands";
+// MQTT topic suffixes. Full topic is {topic_base}/<suffix>, where topic_base
+// (e.g. agronos/devices/{uuid}) comes from the MQTT credentials provisioning response.
+// Broker ACL is agronos/devices/<username>/#, written per user by Agronos.
+constexpr const char* AGRONOS_MQTT_TOPIC_SUFFIX_DATA = "sensors";
+constexpr const char* AGRONOS_MQTT_TOPIC_SUFFIX_STATUS = "status";
+constexpr const char* AGRONOS_MQTT_TOPIC_SUFFIX_COMMAND = "commands";  // Reserved: device is publish-only, not subscribed yet
 
 // MQTT QoS levels
 constexpr int AGRONOS_MQTT_QOS_DATA = 1;      // At least once for sensor data

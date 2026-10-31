@@ -42,19 +42,22 @@ bool Storage::getMqttCredentials(MqttCredentials &creds) {
   creds.server = prefs.getString("server", "");
   creds.username = prefs.getString("username", "");
   creds.password = prefs.getString("password", "");
+  creds.topicBase = prefs.getString("topic_base", "");
   prefs.end();
   
   creds.isValid = (creds.server.length() > 0 && 
                    creds.username.length() > 0 && 
-                   creds.password.length() > 0);
+                   creds.password.length() > 0 &&
+                   creds.topicBase.length() > 0);
   return creds.isValid;
 }
 
-void Storage::setMqttCredentials(const String &server, const String &username, const String &password) {
+void Storage::setMqttCredentials(const String &server, const String &username, const String &password, const String &topicBase) {
   prefs.begin("mqtt", false);
   prefs.putString("server", server);
   prefs.putString("username", username);
   prefs.putString("password", password);
+  prefs.putString("topic_base", topicBase);
   prefs.end();
   Serial.println("MQTT credentials saved to storage");
 }

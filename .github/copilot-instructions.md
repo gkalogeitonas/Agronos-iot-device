@@ -26,7 +26,7 @@ ESP32 firmware that reads sensors and publishes data via MQTT (primary) or HTTP 
 - [data_sender.cpp](../src/data_sender.cpp): MQTT-first with automatic HTTP fallback
 - Flow: Try MQTT → on failure fallback to HTTP → both use same JSON payload structure
 - Single payload format ensures protocol transparency to sensor layer
-- MQTT topics follow `devices/{device-uuid}/sensors` pattern for ACL compliance
+- MQTT topics are built from the provisioned `topic_base` (e.g. `agronos/devices/{device-uuid}`) as `{topic_base}/sensors|status|commands`; never hard-code topics. Missing `topic_base` = provisioning failure (HTTP only)
 
 ### Persistent Storage (NVS)
 - [storage.cpp](../src/storage.cpp) wraps ESP32 Preferences API with namespaced keys
@@ -107,7 +107,7 @@ Example: [soil_moisture.cpp](../src/soil_moisture.cpp) for capacitive sensor imp
 
 ### Common Issues
 - **NaN readings**: DHT pin conflict - ensure using `getSharedDht()` not direct `DHT` instantiation
-- **MQTT connection failures**: Verify broker address, check ACL rules match topic pattern `devices/<username>/#`
+- **MQTT connection failures**: Verify broker address, check the per-user ACL `agronos/devices/<username>/#` (written by Agronos) matches the provisioned `topic_base`
 - **HTTP/MQTT credential mismatch**: JWT token must be valid when fetching MQTT credentials
 
 ## Key Files Reference

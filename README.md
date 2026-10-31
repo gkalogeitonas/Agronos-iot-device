@@ -62,9 +62,9 @@ MQTT Support
 
 The device supports MQTT as the primary protocol for sending sensor data with automatic HTTP fallback:
 
-- **Automatic Provisioning**: MQTT credentials (broker, username, password) are fetched from the backend after JWT authentication.
+- **Automatic Provisioning**: MQTT credentials (broker, username, password, `topic_base`) are fetched from the backend after JWT authentication.
 - **Configurable**: Enable/disable MQTT via `MQTT_ENABLED` in `config.h`.
-- **Topics**: Publishes to `devices/{device-uuid}/sensors` with QoS 1 for reliability.
+- **Topics**: Built from the provisioned `topic_base` (e.g. `agronos/devices/{device-uuid}`): data goes to `{topic_base}/sensors`, status to `{topic_base}/status`. Nothing is hard-coded, so a backend prefix change needs no firmware release. If the response has no `topic_base`, MQTT provisioning fails and the device uses HTTP only.
 - **Persistent Storage**: MQTT credentials stored in NVS for persistence across reboots.
 
 MQTT configuration options in `config.h`:
@@ -116,7 +116,8 @@ Troubleshooting
   - For MQTT issues, verify `MQTT_ENABLED` is true and MQTT credentials were provisioned (check serial logs).
   - The device automatically falls back to HTTP if MQTT connection fails.
   - MQTT credentials are fetched from `BASE_URL/api/v1/device/mqtt-credentials` using the JWT token.
-- If MQTT connection repeatedly fails, check broker availability and ensure the backend returns valid MQTT credentials.
+- If MQTT connection repeatedly fails, check broker availability and ensure the backend returns valid MQTT credentials, including `topic_base`.
+- If MQTT publishes are rejected, check the broker ACL: Agronos writes a per-user rule allowing `agronos/devices/<username>/#`.
 
 
 
