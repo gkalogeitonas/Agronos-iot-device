@@ -145,11 +145,14 @@ bool AuthManager::performMqttCredentialsRequest() {
         return false;
       }
       
-      // Extract credentials
-      if (!doc.containsKey("mqtt_broker_url") || 
-          !doc.containsKey("username") || 
-          !doc.containsKey("password")) {
-        Serial.println("Missing MQTT credential fields in response");
+      // Extract credentials. Topics are built from topic_base, so it is required
+      // like the others (no fallback topics). is<const char*>() also rejects null,
+      // which as<String>() would turn into the text "null".
+      if (!doc["mqtt_broker_url"].is<const char*>() || 
+          !doc["username"].is<const char*>() || 
+          !doc["password"].is<const char*>() ||
+          !doc["topic_base"].is<const char*>()) {
+        Serial.println("Missing MQTT credential fields (mqtt_broker_url/username/password/topic_base) in response; MQTT disabled (using HTTP)");
         http.end();
         return false;
       }
@@ -157,20 +160,23 @@ bool AuthManager::performMqttCredentialsRequest() {
       String server = doc["mqtt_broker_url"].as<String>();
       String username = doc["username"].as<String>();
       String password = doc["password"].as<String>();
+      String topicBase = doc["topic_base"].as<String>();
+      while (topicBase.endsWith("/")) topicBase.remove(topicBase.length() - 1);
       
-      if (server.length() == 0 || username.length() == 0 || password.length() == 0) {
+      if (server.length() == 0 || username.length() == 0 || password.length() == 0 || topicBase.length() == 0) {
         Serial.println("Empty MQTT credential fields");
         http.end();
         return false;
       }
       
       // Store credentials
-      storage.setMqttCredentials(server, username, password);
+      storage.setMqttCredentials(server, username, password, topicBase);
       
       Serial.println("MQTT credentials obtained successfully:");
       Serial.print("  Server: "); Serial.println(server);
       Serial.print("  Username: "); Serial.println(username);
-      Serial.println("  Password: "); Serial.println(password); // Print actual password
+      Serial.print("  Topic base: "); Serial.println(topicBase);
+      Serial.println("  Password: ****");
 
       http.end();
       return true;

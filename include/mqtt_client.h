@@ -33,7 +33,7 @@ private:
     MqttCredentials credentials;
     bool credentialsLoaded;
     
-    String buildTopic(const char* topicTemplate) const;
+    String buildTopic(const char* suffix) const;
     bool loadCredentials();
     
     // Callback for incoming messages
